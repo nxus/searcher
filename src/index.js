@@ -4,6 +4,9 @@
 * @Last Modified 2016-02-25
 */
 /**
+ *
+ * [![Build Status](https://travis-ci.org/nxus/searcher.svg?branch=master)](https://travis-ci.org/nxus/searcher)
+ * 
  * The Searcher module enables easy searching of Nxus models using different adapters for Solr, ElasticSearch and others.
  * 
  * # Installation
