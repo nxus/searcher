@@ -68,14 +68,14 @@
  * ## Views
  * You can provide search specific views to be used for search results:
  *
- * 1. search-users-list: the list view for returned search results.
- * 1. search-users-detail: the detail view for an individual search result.
+ * 1. search-user-list: the list view for returned search results.
+ * 1. search-user-detail: the detail view for an individual search result.
  * 
  * Alternatively, if no search templates are found, searcher will automatically use the `@nxus/base-ui` views for any model 
  * that is searchable (if they exist).
  *
- * 1. view-users-list: the list view used to display search results.
- * 1. view-users-detail: the detail view linked to from the list view.
+ * 1. view-user-list: the list view used to display search results.
+ * 1. view-user-detail: the detail view linked to from the list view.
  *
  * Finally, searcher will use default list/detail views if no other templates are found. 
  * 
@@ -123,9 +123,9 @@ export default class Searcher {
     this.app.get('base-ui').getViewModel(model).then((viewModel) => {
       if(!viewModel) {
         return this.router.route('get', '/search/'+pluralize(model)+"/:id", (req, res) => {
-          return this.app.get('templater').getTemplate('search-'+pluralize(model)+'-detail').then((template) => {
+          return this.app.get('templater').getTemplate('search-'+model+'-detail').then((template) => {
             if(template) {
-              template = 'search-'+pluralize(model)+'-detail'
+              template = 'search-'+model+'-detail'
             } else {
               template = __dirname+"/../views/detail.ejs"
             }
@@ -150,15 +150,14 @@ export default class Searcher {
         let opts = {}
         opts[pluralize(model)] = results
         opts.title = 'Search Results for '+req.param('q')
-        return this.app.get('templater').getTemplate('search-'+pluralize(model)+'-list').then((template) => {
-          console.log('template')
+        return this.app.get('templater').getTemplate('search-'+model+'-list').then((template) => {
+          console.log('template', template)
           if(template) {
             opts.req = req
-            return this.app.get('templater').renderPartial('search-'+pluralize(model)+'-list', 'page', opts).then(res.send.bind(res))
+            return this.app.get('templater').renderPartial('search-'+model+'-list', 'page', opts).then(res.send.bind(res))
           } else {
             return this.app.get('base-ui').getViewModel(model).then((viewModel) => {
               return this.app.get('storage').getModel(model).then((M) => {
-                console.log('view-model', viewModel)
                 if(viewModel) {
                   return viewModel.list(req, res, opts).bind(res.send.bind(res))
                 } else {
