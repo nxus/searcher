@@ -1,0 +1,10 @@
+<div>
+  <% attributes.forEach(function(attr) { %>
+    <% attr.value = inst[attr.name] %>
+    <div>
+      <span><strong><%= attr.name %></strong></span> <span><%= attr.value %></span>
+    </div>
+  <% }) %>
+</div>
+<div>
+<br/>

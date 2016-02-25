@@ -1,6 +1,6 @@
 {
   "name": "@nxus/searcher",
-  "version": "2.3.0",
+  "version": "2.4.0-0",
   "description": "A search framework for Nxus apps",
   "main": "lib",
   "scripts": {
@@ -21,14 +21,15 @@
   "dependencies": {
     "babel-runtime": "^5.7.0",
     "bluebird": "^3.3.1",
+    "pluralize": "^1.2.1",
     "underscore": "^1.8.3"
   },
   "peerDependencies": {
-    "@nxus/core": "^2.3.0",
-    "@nxus/storage": "^2.3.0"
+    "@nxus/core": "^2.4.0-0",
+    "@nxus/storage": "^2.4.0-0"
   },
   "devDependencies": {
-    "@nxus/core": "^2.3.0",
+    "@nxus/core": "^2.4.0-0",
     "babel": "^5.6.23",
     "mocha": "^2.2.5",
     "should": "^7.0.2",

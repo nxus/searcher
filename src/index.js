@@ -1,7 +1,7 @@
 /* 
 * @Author: Mike Reich
 * @Date:   2016-02-05 07:45:34
-* @Last Modified 2016-02-21
+* @Last Modified 2016-02-25
 */
 /**
  * The Searcher module enables easy searching of Nxus models using different adapters for Solr, ElasticSearch and others.
@@ -43,35 +43,38 @@
  * Now that the correct Storage adapters are configured, you'll need to tell Searcher which models you want to enable 
  * search using the `searchable` method. Searchable accepts an identity for a model which has already been registered.
  *
- *    app.get('searcher').searchable('users')
+ *    app.get('searcher').searchable('user')
  *
  * By default, Searcher will look for a field named `title` or `name` to use as the search field. You can specify different, or 
  * multiple fields to search by specifying a second options parameter, with the `fields` key:
  *
- *    app.get('searcher').searchable('users', {fields: 'firstName'})
- *    app.get('searcher').searchable('users', {fields: ['firstName', 'lastName']})
+ *    app.get('searcher').searchable('user', {fields: 'firstName'})
+ *    app.get('searcher').searchable('user', {fields: ['firstName', 'lastName']})
  *
  * ## Routes
  * Based on the model identify, Searcher will create the following routes
  *
- *     /<model>/search
+ *     /users/search
  *
  * which accepts a search parameter `q`. So to search for the term 'pizza':
  *
- *     /<model>/search?q=pizza
+ *     /users/search?q=mike
  *
  * The search wil return a list of results using the views below.
  * 
  * ## Views
- * Searcher will automatically use the `@nxus/base-ui` views for any model that is searchable (if they exist).
+ * You can provide search specific views to be used for search results:
  *
- * 1. view-<model>-list: the list view used to display search results.
- * 1. view-<model>-detail: the detail view linked to from the list view.
+ * 1. search-users-list: the list view for returned search results.
+ * 1. search-users-detail: the detail view for an individual search result.
+ * 
+ * Alternatively, if no search templates are found, searcher will automatically use the `@nxus/base-ui` views for any model 
+ * that is searchable (if they exist).
  *
- * Alternatively, you can provide search specific views to be used instead:
+ * 1. view-users-list: the list view used to display search results.
+ * 1. view-users-detail: the detail view linked to from the list view.
  *
- * 1. search-<model>-list: the list view for returned search results.
- * 1. search-<model>-detail: the detail view for an individual search result.
+ * Finally, searcher will use default list/detail views if no other templates are found. 
  * 
  * # API
  * 
@@ -82,6 +85,7 @@
 import SearchDocument from './models/searchDocument.js'
 import _ from 'underscore'
 import Promise from 'bluebird'
+import pluralize from 'pluralize'
 
 /**
  * The Search class enables automated searching of models using different adapters.
@@ -113,9 +117,58 @@ export default class Searcher {
     this.storage.on('model.update', this._handleUpdate.bind(this))  
     this.storage.on('model.destroy', this._handleDestroy.bind(this))  
 
-    this.router.route('get', '/search/'+model, (req, res) => {
-      Promise.try(() => {return this._handleSearch(req, res, model)})
-      .then(res.send.bind(res))
+    this.app.get('base-ui').getViewModel(model).then((viewModel) => {
+      if(!viewModel) {
+        return this.router.route('get', '/search/'+pluralize(model)+"/:id", (req, res) => {
+          return this.app.get('templater').getTemplate('search-'+pluralize(model)+'-detail').then((template) => {
+            if(template) {
+              template = 'search-'+pluralize(model)+'-detail'
+            } else {
+              template = __dirname+"/../views/detail.ejs"
+            }
+            return this.app.get('storage').getModel(model).then((M) => {
+              return M.findOne(req.param('id')).then((r) => {
+                let opts = {}
+                opts[model] = r
+                opts.inst = r
+                opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name = k; return ret})
+                console.log('template', template, opts)
+                opts.title = 'View '+r.id
+                return this.app.get('templater').renderPartial(template, 'page', opts).then(res.send.bind(res))
+              })
+            })
+          })
+        })
+      }
+    })
+
+    this.router.route('get', '/search/'+pluralize(model), (req, res) => {
+      return this._handleSearch(req, res, model).then((results) => {
+        let opts = {}
+        opts[pluralize(model)] = results
+        opts.title = 'Search Results for '+req.param('q')
+        return this.app.get('templater').getTemplate('search-'+pluralize(model)+'-list').then((template) => {
+          console.log('template')
+          if(template) {
+            opts.req = req
+            return this.app.get('templater').renderPartial('search-'+pluralize(model)+'-list', 'page', opts).then(res.send.bind(res))
+          } else {
+            return this.app.get('base-ui').getViewModel(model).then((viewModel) => {
+              return this.app.get('storage').getModel(model).then((M) => {
+                console.log('view-model', viewModel)
+                if(viewModel) {
+                  return viewModel.list(req, res, opts).bind(res.send.bind(res))
+                } else {
+                  opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name =k; return ret})
+                  opts.insts = results
+                  opts.base = "/search/"+pluralize(model)
+                  return this.app.get('templater').renderPartial(__dirname+"/../views/list.ejs", 'page', opts).then(res.send.bind(res))
+                }
+              })
+            })
+          }
+        })
+      })
     })
   }
 
@@ -128,7 +181,7 @@ export default class Searcher {
       let opts = this.modelConfig[model]
       if(opts.fields.length > 1) {
         query['or'] = []
-        for(let field in opts.fields) {
+        for(let field of opts.fields) {
           var o = {}
           o[field] = q
           query.or.push(o)
