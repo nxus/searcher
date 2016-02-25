@@ -1,7 +1,7 @@
 /* 
 * @Author: Mike Reich
 * @Date:   2016-02-13 08:59:44
-* @Last Modified 2016-02-13 @Last Modified time: 2016-02-13 08:59:44
+* @Last Modified 2016-02-21
 */
 
 'use strict';
@@ -25,5 +25,10 @@ describe("Module", () => {
       module = new Module(app);
       module.should.not.be.null;
     });
+
+    it("should setup gathers", () => {
+      app.get.calledWith('searcher').should.be.true;
+      app.get('searcher').gather.calledWith('searchable').should.be.true;
+    })
   });
 })

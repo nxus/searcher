@@ -1,0 +1,27 @@
+<table class="table table-stripped">
+    <thead>
+        <tr>
+          <% attributes.forEach(function(attr) { %>
+            <th><%= attr.label %></th>
+          <% }) %>
+        </tr>
+    </thead>
+    <tbody>
+      <% insts.forEach(function(u) { %>
+        <tr>
+            <td><a href="<%=base%>/<%=u.id%>"><%=u.id%></a></td>
+          <% attributes.forEach(function(attr) { %>
+            <% if(attr.name == 'id') { %>
+              
+            <% } else if (attr.type == 'password') { %> <% return %>
+            <% } else if (attr.type == 'boolean') { %>
+            <td><%- u[attr.name] ? '<i class="fa fa-check"></i>' : '' %></td>
+            <% } else { %>
+            <td><%= u[attr.name] %></td>
+            <% } %>
+          <% }) %>
+        </tr>
+      <% }) %>
+    </tbody>
+</table>
+
