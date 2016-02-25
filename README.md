@@ -68,14 +68,14 @@ The search wil return a list of results using the views below.
 
 You can provide search specific views to be used for search results:
 
-1.  search-users-list: the list view for returned search results.
-2.  search-users-detail: the detail view for an individual search result.
+1.  search-user-list: the list view for returned search results.
+2.  search-user-detail: the detail view for an individual search result.
 
 Alternatively, if no search templates are found, searcher will automatically use the `@nxus/base-ui` views for any model 
 that is searchable (if they exist).
 
-1.  view-users-list: the list view used to display search results.
-2.  view-users-detail: the detail view linked to from the list view.
+1.  view-user-list: the list view used to display search results.
+2.  view-user-detail: the detail view linked to from the list view.
 
 Finally, searcher will use default list/detail views if no other templates are found. 
 
