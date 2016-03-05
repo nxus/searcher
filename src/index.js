@@ -1,7 +1,7 @@
 /* 
 * @Author: Mike Reich
 * @Date:   2016-02-05 07:45:34
-* @Last Modified 2016-02-25
+* @Last Modified 2016-03-05
 */
 /**
  *
@@ -26,7 +26,7 @@
  * then add to package.json
  *
  *    "storage": {
- *      "adapter": {
+ *      "adapters": {
  *        ...
  *        "searcher": "waterline-elasticsearch"
  *      },
@@ -34,8 +34,7 @@
  *        ...
  *        "searcher: {
  *          "adapter": "searcher",
- *          "host": "<host address>",
- *          "port": 920,
+ *          "host": "<host address>:9200",
  *          "log": "warning",
  *          "index": "searcher"
  *        }
@@ -100,10 +99,30 @@ export default class Searcher {
     this.router = this.app.get('router')
     this.modelConfig = {}
 
+    this.app.before('init', () => {
+      this._setDefaultConfig(app)
+    })
+
     this.app.get('searcher').use(this)
     .gather('searchable')
 
     this.storage.model(SearchDocument)
+  }
+
+  _setDefaultConfig(app) {
+    var conf = app.config.storage
+    if(!conf.adapters) conf.adapters = {}
+    if(!conf.connections) conf.connections = {}
+    if(!conf.adapters.searcher) {
+      conf.adapters.searcher = "waterline-elasticsearch"
+      conf.connections.searcher = {
+         "adapter": "searcher",
+         "host": app.config.host+":9200",
+         "log": "warning",
+         "index": "searcher"
+      }
+      app.writeDefaultConfig('storage', conf)
+    }
   }
 
   /**

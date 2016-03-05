@@ -22,7 +22,8 @@
     "babel-runtime": "^5.7.0",
     "bluebird": "^3.3.1",
     "pluralize": "^1.2.1",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "waterline-elasticsearch": "https://github.com/seabourne/waterline-elasticsearch.git#master"
   },
   "peerDependencies": {
     "@nxus/core": "^2.4.0-0",
