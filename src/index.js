@@ -1,7 +1,7 @@
 /* 
 * @Author: Mike Reich
 * @Date:   2016-02-05 07:45:34
-* @Last Modified 2016-03-05
+* @Last Modified 2016-04-10
 */
 /**
  *
@@ -165,39 +165,72 @@ export default class Searcher {
     })
 
     this.router.route('get', '/search/'+pluralize(model), (req, res) => {
+      let page = parseInt(req.param('page')) || 1
       return this._handleSearch(req, res, model).then((results) => {
-        let opts = {}
-        opts[pluralize(model)] = results
-        opts.title = 'Search Results for '+req.param('q')
-        return this.app.get('templater').getTemplate('search-'+model+'-list').then((template) => {
-          console.log('template', template)
-          if(template) {
-            opts.req = req
-            return this.app.get('templater').renderPartial('search-'+model+'-list', 'page', opts).then(res.send.bind(res))
-          } else {
-            return this.app.get('base-ui').getViewModel(model).then((viewModel) => {
-              return this.app.get('storage').getModel(model).then((M) => {
-                if(viewModel) {
-                  return viewModel.list(req, res, opts).bind(res.send.bind(res))
-                } else {
-                  opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name =k; return ret})
-                  opts.insts = results
-                  opts.base = "/search/"+pluralize(model)
-                  return this.app.get('templater').renderPartial(__dirname+"/../views/list.ejs", 'page', opts).then(res.send.bind(res))
-                }
-              })
-            })
+        return this._handleCount(req, res, model).then((total) => {
+          let totalPages = total > 0 ? Math.ceil(total/10) : 0
+          console.log('totalpages', totalPages)
+          let opts = {
+            total,
+            page,
+            itemsPerPage: 10,
           }
+          console.log(opts)
+          opts[pluralize(model)] = results
+          opts.title = 'Search Results for '+req.param('q')
+          return this.app.get('templater').getTemplate('search-'+model+'-list').then(([template]) => {
+            return this.app.get('storage').getModel(model).then((M) => {
+              opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name =k; return ret})
+              opts.insts = results
+              opts.base = "/search/"+pluralize(model)+"?q="+encodeURIComponent(req.param('q'))+"&"
+              opts.req = req
+              if(template) {
+                return this.app.get('templater').renderPartial('search-'+model+'-list', 'page', opts).then(res.send.bind(res))
+              } else {
+                return this.app.get('base-ui').getViewModel(model).then((viewModel) => {
+                  if(viewModel) {
+                    return viewModel.list(req, res, opts).bind(res.send.bind(res))
+                  } else {
+                    return this.app.get('templater').renderPartial(__dirname+"/../views/list.ejs", 'page', opts).then(res.send.bind(res))
+                  }
+                })
+              }
+            })
+          })
         })
       })
+    })
+  }
+
+  _handleCount(req, res, model) {
+    if(!this.modelConfig[model]) return res.status(404)
+    let q = req.param('q') || {}
+    this.app.log.debug('Searching for', model, q)
+    return this.app.get('storage').getModel(['searchdocument', model]).spread((SD, M) => {
+      let query = {model: model}
+      let opts = this.modelConfig[model]
+      if(opts.fields.length > 1) {
+        query['or'] = []
+        for(let field of opts.fields) {
+          var o = {}
+          o[field] = q
+          query.or.push(o)
+        }
+      } else {
+        query[opts.fields[0]] = q
+      }
+      this.app.log.debug('Performing count query', model, query)
+      return SD.count().where(query)
     })
   }
 
   _handleSearch(req, res, model) {
     if(!this.modelConfig[model]) return res.status(404)
     let q = req.param('q') || {}
+    let limit = 10
+    let skip = ((parseInt(req.param('page')) || 1)-1)*limit
     this.app.log.debug('Searching for', model, q)
-    return this.app.get('storage').getModel('searchdocument').then((SD) => {
+    return this.app.get('storage').getModel(['searchdocument', model]).spread((SD, M) => {
       let query = {model: model}
       let opts = this.modelConfig[model]
       if(opts.fields.length > 1) {
@@ -211,7 +244,14 @@ export default class Searcher {
         query[opts.fields[0]] = q
       }
       this.app.log.debug('Performing query', model, query)
-      return SD.find().where(query)
+      return SD.find().where(query).skip(skip).limit(limit).then((ids) => {
+        ids = _.pluck(ids, 'id')
+        console.log('ids', ids)
+        let idq = M.find().where({id: ids})
+        if(opts.populate)
+          idq.populate(opts.populate)
+        return idq
+      })
     })
   }
 
