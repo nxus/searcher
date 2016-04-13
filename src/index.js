@@ -1,7 +1,7 @@
 /* 
 * @Author: Mike Reich
 * @Date:   2016-02-05 07:45:34
-* @Last Modified 2016-04-10
+* @Last Modified 2016-04-13
 */
 /**
  *
@@ -154,7 +154,6 @@ export default class Searcher {
                 opts[model] = r
                 opts.inst = r
                 opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name = k; return ret})
-                console.log('template', template, opts)
                 opts.title = 'View '+r.id
                 return this.app.get('templater').renderPartial(template, 'page', opts).then(res.send.bind(res))
               })
@@ -169,13 +168,11 @@ export default class Searcher {
       return this._handleSearch(req, res, model).then((results) => {
         return this._handleCount(req, res, model).then((total) => {
           let totalPages = total > 0 ? Math.ceil(total/10) : 0
-          console.log('totalpages', totalPages)
           let opts = {
             total,
             page,
             itemsPerPage: 10,
           }
-          console.log(opts)
           opts[pluralize(model)] = results
           opts.title = 'Search Results for '+req.param('q')
           return this.app.get('templater').getTemplate('search-'+model+'-list').then(([template]) => {
@@ -246,7 +243,6 @@ export default class Searcher {
       this.app.log.debug('Performing query', model, query)
       return SD.find().where(query).skip(skip).limit(limit).then((ids) => {
         ids = _.pluck(ids, 'id')
-        console.log('ids', ids)
         let idq = M.find().where({id: ids})
         if(opts.populate)
           idq.populate(opts.populate)
