@@ -1,7 +1,7 @@
 /* 
 * @Author: Mike Reich
 * @Date:   2016-02-05 07:45:34
-* @Last Modified 2016-04-13
+* @Last Modified 2016-04-15
 */
 /**
  *
@@ -143,11 +143,6 @@ export default class Searcher {
       if(!viewModel) {
         return this.router.route('get', '/search/'+pluralize(model)+"/:id", (req, res) => {
           return this.app.get('templater').getTemplate('search-'+model+'-detail').then((template) => {
-            if(template) {
-              template = 'search-'+model+'-detail'
-            } else {
-              template = __dirname+"/../views/detail.ejs"
-            }
             return this.app.get('storage').getModel(model).then((M) => {
               return M.findOne(req.param('id')).then((r) => {
                 let opts = {}
@@ -155,7 +150,13 @@ export default class Searcher {
                 opts.inst = r
                 opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name = k; return ret})
                 opts.title = 'View '+r.id
-                return this.app.get('templater').renderPartial(template, 'page', opts).then(res.send.bind(res))
+                if(template) {
+                  return this.app.get('templater').render('search-'+model+'-detail', opts).then(res.send.bind(res))
+                } else {
+                  return this.app.get('templater').render('page', opts).then((content) => {
+                    return this.app.get('renderer').renderFile(__dirname+"/../views/detail.ejs", opts)
+                  }).then(res.send.bind(res))
+                }
               })
             })
           })
@@ -182,13 +183,15 @@ export default class Searcher {
               opts.base = "/search/"+pluralize(model)+"?q="+encodeURIComponent(req.param('q'))+"&"
               opts.req = req
               if(template) {
-                return this.app.get('templater').renderPartial('search-'+model+'-list', 'page', opts).then(res.send.bind(res))
+                return this.app.get('templater').render('search-'+model+'-list', opts).then(res.send.bind(res))
               } else {
                 return this.app.get('base-ui').getViewModel(model).then((viewModel) => {
                   if(viewModel) {
                     return viewModel.list(req, res, opts).bind(res.send.bind(res))
                   } else {
-                    return this.app.get('templater').renderPartial(__dirname+"/../views/list.ejs", 'page', opts).then(res.send.bind(res))
+                    return this.app.get('renderer').renderFile(__dirname+"/../views/list.ejs", opts).then((content) => {
+                      return this.app.get('templater').render('page', {content, ...opts})
+                    }).then(res.send.bind(res))
                   }
                 })
               }
@@ -256,8 +259,7 @@ export default class Searcher {
     doc.model = model
     this.app.log.debug('Creating search doc for', doc)
     return this.app.get('storage').getModel('searchdocument').then((SD) => {
-      this.app.log.debug('Creating search doc', doc)
-      SD.create(doc).then(() => this.app.log.debug('Search document created'))
+      SD.create(doc).then(() => this.app.log.debug('Search document created', model))
       .catch((e) => this.app.log.error('Could not create search doc', e))
     })
   }
@@ -265,8 +267,7 @@ export default class Searcher {
   _handleDestroy(model, doc) {
     if(!this.modelConfig[model]) return
     return this.app.get('storage').getModel('searchdocument').then((SD) => {
-      this.app.log.debug('Deleting search doc', doc)
-      SD.destroy().where(doc.id).then(() => this.app.log.debug('Search document deleted'))
+      SD.destroy().where(doc.id).then(() => this.app.log.debug('Search document deleted', model))
       .catch((e) => this.app.log.error('Could not delete search doc', e))
     })
   }
@@ -274,8 +275,7 @@ export default class Searcher {
   _handleUpdate(model, doc) {
     if(!this.modelConfig[model]) return
     return this.app.get('storage').getModel('searchdocument').then((SD) => {
-      this.app.log.debug('Updating search doc', doc)
-      SD.update(doc.id, doc).then(() => this.app.log.debug('Search document updated'))
+      SD.update(doc.id, doc).then(() => this.app.log.debug('Search document updated', model))
       .catch((e) => this.app.log.error('Could not update search doc', e))
     })
   }
