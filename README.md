@@ -23,7 +23,7 @@ options in the Storage config.
 then add to package.json
 
    "storage": {
-     "adapter": {
+     "adapters": {
        ...
        "searcher": "waterline-elasticsearch"
      },
@@ -31,8 +31,7 @@ then add to package.json
        ...
        "searcher: {
          "adapter": "searcher",
-         "host": "<host address>",
-         "port": 920,
+         "host": "<host address>:9200",
          "log": "warning",
          "index": "searcher"
        }
