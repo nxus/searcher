@@ -1,7 +1,7 @@
 /* 
 * @Author: Mike Reich
 * @Date:   2016-02-05 07:45:34
-* @Last Modified 2016-04-15
+* @Last Modified 2016-04-18
 */
 /**
  *
@@ -205,7 +205,6 @@ export default class Searcher {
   _handleCount(req, res, model) {
     if(!this.modelConfig[model]) return res.status(404)
     let q = req.param('q') || {}
-    this.app.log.debug('Searching for', model, q)
     return this.app.get('storage').getModel(['searchdocument', model]).spread((SD, M) => {
       let query = {model: model}
       let opts = this.modelConfig[model]
@@ -219,7 +218,6 @@ export default class Searcher {
       } else {
         query[opts.fields[0]] = q
       }
-      this.app.log.debug('Performing count query', model, query)
       return SD.count().where(query)
     })
   }
@@ -243,7 +241,6 @@ export default class Searcher {
       } else {
         query[opts.fields[0]] = q
       }
-      this.app.log.debug('Performing query', model, query)
       return SD.find().where(query).skip(skip).limit(limit).then((ids) => {
         ids = _.pluck(ids, 'id')
         let idq = M.find().where({id: ids})
@@ -257,7 +254,6 @@ export default class Searcher {
   _handleCreate(model, doc) {
     if(!this.modelConfig[model]) return
     doc.model = model
-    this.app.log.debug('Creating search doc for', doc)
     return this.app.get('storage').getModel('searchdocument').then((SD) => {
       SD.create(doc).then(() => this.app.log.debug('Search document created', model))
       .catch((e) => this.app.log.error('Could not create search doc', e))
