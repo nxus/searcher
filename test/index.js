@@ -1,14 +1,14 @@
 /* 
 * @Author: Mike Reich
 * @Date:   2016-02-13 08:59:44
-* @Last Modified 2016-02-21
+* @Last Modified 2016-05-20
 */
 
 'use strict';
 
 import Module from '../src/'
 
-import TestApp from '@nxus/core/lib/test/support/TestApp';
+import TestApp from 'nxus-core/lib/test/support/TestApp';
 
 describe("Module", () => {
   var module, app;

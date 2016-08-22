@@ -1,7 +1,7 @@
 /* 
 * @Author: Mike Reich
 * @Date:   2016-02-05 07:45:34
-* @Last Modified 2016-04-18
+* @Last Modified 2016-05-20
 */
 /**
  *
@@ -190,7 +190,8 @@ export default class Searcher {
                     return viewModel.list(req, res, opts).bind(res.send.bind(res))
                   } else {
                     return this.app.get('renderer').renderFile(__dirname+"/../views/list.ejs", opts).then((content) => {
-                      return this.app.get('templater').render('page', {content, ...opts})
+                      opts.content = content
+                      return this.app.get('templater').render('page', opts)
                     }).then(res.send.bind(res))
                   }
                 })

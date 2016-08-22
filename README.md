@@ -1,4 +1,4 @@
-# @nxus/searcher
+# nxus-searcher
 
 ## 
 
