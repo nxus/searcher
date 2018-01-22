@@ -11,7 +11,7 @@
  * 
  * # Installation
  * 
- *     > npm install @nxus/searcher --save
+ *     > npm install nxus-searcher --save
  * 
  * # Usage
  *
@@ -45,22 +45,23 @@
  * Now that the correct Storage adapters are configured, you'll need to tell Searcher which models you want to enable 
  * search using the `searchable` method. Searchable accepts an identity for a model which has already been registered.
  *
- *    app.get('searcher').searchable('user')
+ *    import {searcher} from 'nxus-searcher'
+ *    searcher.searchable('user')
  *
- * By default, Searcher will look for a field named `title` or `name` to use as the search field. You can specify different, or 
+ * By default, Searcher will look for a field named `title`, `name`, or `description to use as the search field. You can specify different, or 
  * multiple fields to search by specifying a second options parameter, with the `fields` key:
  *
- *    app.get('searcher').searchable('user', {fields: 'firstName'})
- *    app.get('searcher').searchable('user', {fields: ['firstName', 'lastName']})
+ *    searcher.searchable('user', {fields: 'firstName'})
+ *    searcher.searchable('user', {fields: ['firstName', 'lastName']})
  *
  * ## Routes
  * Based on the model identify, Searcher will create the following routes
  *
- *     /users/search
+ *     /search/user
  *
  * which accepts a search parameter `q`. So to search for the term 'pizza':
  *
- *     /users/search?q=mike
+ *     /search/user?q=mike
  *
  * The search wil return a list of results using the views below.
  * 
@@ -84,6 +85,11 @@
 
 'use strict';
 
+import {application as app, NxusModule} from 'nxus-core'
+import {storage} from 'nxus-storage'
+import {templater} from 'nxus-templater'
+import {router} from 'nxus-router'
+
 import SearchDocument from './models/searchDocument.js'
 import _ from 'underscore'
 import Promise from 'bluebird'
@@ -92,24 +98,32 @@ import pluralize from 'pluralize'
 /**
  * The Search class enables automated searching of models using different adapters.
  */
-export default class Searcher {
-  constructor(app) {
-    this.app = app
-    this.storage = this.app.get('storage')
-    this.router = this.app.get('router')
+export default class Searcher extends NxusModule {
+  constructor(opts={}) {
+    super(opts)
+
+    this.pageTemplate = opts.pageTemplate || 'page'
+    
     this.modelConfig = {}
 
-    this.app.before('init', () => {
-      this._setDefaultConfig(app)
+    app.before('init', () => {
+      this._setDefaultConfig()
     })
 
-    this.app.get('searcher').use(this)
-    .gather('searchable')
+    storage.model(SearchDocument)
 
-    this.storage.model(SearchDocument)
+    router.route('get', this.config.baseUrl+"/:model/:id", ::this._searchDetail)
+    router.route('get', this.config.baseUrl+"/:model", ::this._searchResults)
+
   }
 
-  _setDefaultConfig(app) {
+  _defaultConfig() {
+    return {
+      baseUrl: '/search'
+    }
+  }
+
+  _setDefaultConfig() {
     var conf = app.config.storage
     if(!conf.adapters) conf.adapters = {}
     if(!conf.connections) conf.connections = {}
@@ -121,7 +135,6 @@ export default class Searcher {
          "log": "warning",
          "index": "searcher"
       }
-      app.writeDefaultConfig('storage', conf)
     }
   }
 
@@ -131,149 +144,140 @@ export default class Searcher {
    * @param  {Object} opts  An optional hash of options.
    */
   searchable(model, opts = {}) {
-    this.app.log.debug('Registering searchable', model, opts)
-    if(!opts.fields) opts.fields = ['name', 'title']
+    this.log.debug('Registering searchable', model, opts)
+    if(!opts.fields) opts.fields = ['name', 'title', 'description']
+    opts.model = model
     this.modelConfig[model] = opts
+    this.modelConfig[pluralize(model)] = opts
 
-    this.storage.on('model.create', this._handleCreate.bind(this))
-    this.storage.on('model.update', this._handleUpdate.bind(this))  
-    this.storage.on('model.destroy', this._handleDestroy.bind(this))  
+    storage.on('model.create', ::this._handleCreate)
+    storage.on('model.update', ::this._handleUpdate)
+    storage.on('model.destroy', ::this._handleDestroy)
 
-    this.app.get('base-ui').getViewModel(model).then((viewModel) => {
-      if(!viewModel) {
-        return this.router.route('get', '/search/'+pluralize(model)+"/:id", (req, res) => {
-          return this.app.get('templater').getTemplate('search-'+model+'-detail').then((template) => {
-            return this.app.get('storage').getModel(model).then((M) => {
-              return M.findOne(req.param('id')).then((r) => {
-                let opts = {}
-                opts[model] = r
-                opts.inst = r
-                opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name = k; return ret})
-                opts.title = 'View '+r.id
-                if(template) {
-                  return this.app.get('templater').render('search-'+model+'-detail', opts).then(res.send.bind(res))
-                } else {
-                  return this.app.get('templater').render('page', opts).then((content) => {
-                    return this.app.get('renderer').renderFile(__dirname+"/../views/detail.ejs", opts)
-                  }).then(res.send.bind(res))
-                }
-              })
-            })
-          })
-        })
-      }
-    })
-
-    this.router.route('get', '/search/'+pluralize(model), (req, res) => {
-      let page = parseInt(req.param('page')) || 1
-      return this._handleSearch(req, res, model).then((results) => {
-        return this._handleCount(req, res, model).then((total) => {
-          let totalPages = total > 0 ? Math.ceil(total/10) : 0
-          let opts = {
-            total,
-            page,
-            itemsPerPage: 10,
-          }
-          opts[pluralize(model)] = results
-          opts.title = 'Search Results for '+req.param('q')
-          return this.app.get('templater').getTemplate('search-'+model+'-list').then(([template]) => {
-            return this.app.get('storage').getModel(model).then((M) => {
-              opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name =k; return ret})
-              opts.insts = results
-              opts.base = "/search/"+pluralize(model)+"?q="+encodeURIComponent(req.param('q'))+"&"
-              opts.req = req
-              if(template) {
-                return this.app.get('templater').render('search-'+model+'-list', opts).then(res.send.bind(res))
-              } else {
-                return this.app.get('base-ui').getViewModel(model).then((viewModel) => {
-                  if(viewModel) {
-                    return viewModel.list(req, res, opts).bind(res.send.bind(res))
-                  } else {
-                    return this.app.get('renderer').renderFile(__dirname+"/../views/list.ejs", opts).then((content) => {
-                      opts.content = content
-                      return this.app.get('templater').render('page', opts)
-                    }).then(res.send.bind(res))
-                  }
-                })
-              }
-            })
-          })
-        })
-      })
-    })
+    templater.default().template(__dirname+'/templates/searcher-detail.ejs', this.pageTemplate,  'search-'+model+'-detail')
+    templater.default().template(__dirname+'/templates/searcher-list.ejs', this.pageTemplate, 'search-'+model+'-list')
+    
   }
 
-  _handleCount(req, res, model) {
-    if(!this.modelConfig[model]) return res.status(404)
+
+  /**
+   * Search a model for text matches.
+   * @param  {string} model the model identity
+   * @param  {string} text  search value
+   * @return {Array}  result objects 
+   */
+  search(model, text) {
+    
+  }
+  
+  async _searchDetail(req, res) {
+    let m = await storage.getModel(req.params.model)
+    let r = await m.findOne(req.param('id'))
+    let opts = {}
+    opts[model] = r
+    opts.inst = r
+    opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name = k; return ret})
+    opts.title = 'View '+r.id
+    templater.render('search-'+model+'-detail', opts).then(res.send.bind(res))
+  }
+
+  async _searchResults(req, res) {
+    modelOpts = this.modelConfig[this.params.model]
+    if (modelOpts === undefined) {
+      res.status(404).send("Model Not Found")
+      return
+    }
+    let model = modelOpts.model
+    let page = parseInt(req.param('page')) || 1
+    let results = await this._handleSearch(req, res, model)
+    let total = await this._handleCount(req, res, model)
+    let totalPages = total > 0 ? Math.ceil(total/10) : 0
+    let opts = {
+      total,
+      page,
+      itemsPerPage: 10,
+    }
+    opts[pluralize(model)] = results
+    opts.title = 'Search Results for '+req.param('q')
+    let m = await storage.getModel(model)
+    opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name =k; return ret})
+    opts.insts = results
+    opts.base = "/search/"+pluralize(model)+"?q="+encodeURIComponent(req.param('q'))+"&"
+    opts.req = req
+    templater.render('search-'+model+'-detail', opts).then(res.send.bind(res))
+  }
+
+  _buildQuery(q, model) {
+    let query = {model: model}
+    let opts = this.modelConfig[model]
+    if(opts.fields.length > 1) {
+      query['or'] = []
+      for(let field of opts.fields) {
+        var o = {}
+        o[field] = q
+        query.or.push(o)
+      }
+    } else {
+      query[opts.fields[0]] = q
+    }
+  }
+  
+  async _handleCount(req, res, model) {
     let q = req.param('q') || {}
-    return this.app.get('storage').getModel(['searchdocument', model]).spread((SD, M) => {
-      let query = {model: model}
-      let opts = this.modelConfig[model]
-      if(opts.fields.length > 1) {
-        query['or'] = []
-        for(let field of opts.fields) {
-          var o = {}
-          o[field] = q
-          query.or.push(o)
-        }
-      } else {
-        query[opts.fields[0]] = q
-      }
-      return SD.count().where(query)
-    })
+    let [SD, M] = await storage.getModel(['searchdocument', model])
+    let query = this._buildQuery(q, model)
+    return SD.count().where(query)
   }
 
-  _handleSearch(req, res, model) {
-    if(!this.modelConfig[model]) return res.status(404)
+  async _handleSearch(req, res, model) {
     let q = req.param('q') || {}
     let limit = 10
     let skip = ((parseInt(req.param('page')) || 1)-1)*limit
-    this.app.log.debug('Searching for', model, q)
-    return this.app.get('storage').getModel(['searchdocument', model]).spread((SD, M) => {
-      let query = {model: model}
-      let opts = this.modelConfig[model]
-      if(opts.fields.length > 1) {
-        query['or'] = []
-        for(let field of opts.fields) {
-          var o = {}
-          o[field] = q
-          query.or.push(o)
-        }
-      } else {
-        query[opts.fields[0]] = q
-      }
-      return SD.find().where(query).skip(skip).limit(limit).then((ids) => {
-        ids = _.pluck(ids, 'id')
-        let idq = M.find().where({id: ids})
-        if(opts.populate)
-          idq.populate(opts.populate)
-        return idq
-      })
-    })
+    this.log.debug('Searching for', model, q)
+    let [SD, M] = await storage.getModel(['searchdocument', model])
+    let query = this._buildQuery(q, model)
+    let ids = await SD.find().where(query).skip(skip).limit(limit)
+    let opts = this.modelConfig[model]
+    ids = _.pluck(ids, 'id')
+    let idq = M.find().where({id: ids})
+    if(opts.populate)
+      idq.populate(opts.populate)
+    return idq
   }
 
-  _handleCreate(model, doc) {
+  async _handleCreate(model, doc) {
     if(!this.modelConfig[model]) return
     doc.model = model
-    return this.app.get('storage').getModel('searchdocument').then((SD) => {
-      SD.create(doc).then(() => this.app.log.debug('Search document created', model))
-      .catch((e) => this.app.log.error('Could not create search doc', e))
-    })
+    let SD = await storage.getModel('searchdocument')
+    try {
+      await SD.create(doc)
+      this.log.debug('Search document created', model)
+    } catch (e) {
+      this.log.error('Could not create search doc', e)
+    }
   }
 
-  _handleDestroy(model, doc) {
+  async _handleDestroy(model, doc) {
     if(!this.modelConfig[model]) return
-    return this.app.get('storage').getModel('searchdocument').then((SD) => {
-      SD.destroy().where(doc.id).then(() => this.app.log.debug('Search document deleted', model))
-      .catch((e) => this.app.log.error('Could not delete search doc', e))
-    })
+    let SD = await storage.getModel('searchdocument')
+    try {
+      await SD.destroy().where(doc.id)
+      this.log.debug('Search document deleted', model)
+    } catch (e) {
+      this.log.error('Could not delete search doc', e)
+    }
   }
 
-  _handleUpdate(model, doc) {
+  async _handleUpdate(model, doc) {
     if(!this.modelConfig[model]) return
-    return this.app.get('storage').getModel('searchdocument').then((SD) => {
-      SD.update(doc.id, doc).then(() => this.app.log.debug('Search document updated', model))
-      .catch((e) => this.app.log.error('Could not update search doc', e))
-    })
+    let SD = await storage.getModel('searchdocument')
+    try {
+      await SD.update(doc.id, doc)
+      this.log.debug('Search document updated', model)
+    } catch (e) {
+      this.log.error('Could not update search doc', e)
+    }
   }
 } 
+
+export let searcher = Searcher.getProxy()

@@ -6,29 +6,29 @@
 
 'use strict';
 
-import Module from '../src/'
+import Searcher from '../src/'
+import {searcher} from '../src/'
 
-import TestApp from 'nxus-core/lib/test/support/TestApp';
-
-describe("Module", () => {
-  var module, app;
+describe("Searcher", () => {
+  var module
  
   beforeEach(() => {
-    app = new TestApp();
-    module = new Module(app);
+    module = new Searcher();
   });
   
   describe("Load", () => {
-    it("should not be null", () => Module.should.not.be.null)
+    it("should not be null", () => {
+      Searcher.should.not.be.null
+      searcher.should.not.be.null
+    })
 
     it("should be instantiated", () => {
-      module = new Module(app);
+      module = new Searcher();
       module.should.not.be.null;
     });
 
-    it("should setup gathers", () => {
-      app.get.calledWith('searcher').should.be.true;
-      app.get('searcher').gather.calledWith('searchable').should.be.true;
+    it("should have searchable", () => {
+      module.searchable.should.not.be.null
     })
   });
 })
