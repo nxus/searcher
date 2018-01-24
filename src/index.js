@@ -7,7 +7,7 @@
  *
  * [![Build Status](https://travis-ci.org/nxus/searcher.svg?branch=master)](https://travis-ci.org/nxus/searcher)
  * 
- * The Searcher module enables easy searching of Nxus models using different adapters for Solr, ElasticSearch and others.
+ * The Searcher module enables easy searching of Nxus models using ElasticSearch.
  * 
  * # Installation
  * 
@@ -103,6 +103,7 @@ export default class Searcher extends NxusModule {
     super(opts)
 
     this.pageTemplate = opts.pageTemplate || 'page'
+    this.itemsPerPage = opts.itemsPerPage || 20
     
     this.modelConfig = {}
 
@@ -164,11 +165,42 @@ export default class Searcher extends NxusModule {
    * Search a model for text matches.
    * @param  {string} model the model identity
    * @param  {string} text  search value
+   * @param  {Object} opts Options for {filters, limit, skip, sort}
    * @return {Array}  result objects 
    */
-  search(model, text) {
-    
+  async search(model, text, opts) {
+    let [SD, M] = await storage.getModel(['searchdocument', model])
+    let query = this._buildQuery(model, text, opts)
+    let ids = await SD.find().where(query)
+    let populate = this.modelConfig[model].populate
+    ids = _.pluck(ids, 'id')
+    let idq = M.find().where({id: ids})
+    if(populate)
+      idq.populate(populate)
+    return idq
   }
+
+  /**
+   * Reindex all of a model's documents
+   * @param  {string} model the model identity
+   */
+  async reindex(model) {
+    // TODO ElasticSearch offers the ability to reindex by building a new index and then replacing
+    // TODO We should use that.
+    let [SD, M] = await storage.getModel(['searchdocument', model])
+    let objs = await M.find()
+    let obj = objs[0]
+//    objs.forEach(async (obj) => {
+      let exists = await SD.count().where({id: obj.id})
+      console.log("exists", exists)
+      if (exists >= 1) {
+        await this._handleUpdate(model, obj)
+      } else {
+        await this._handleCreate(model, obj)
+      }
+//    })
+  }
+
   
   async _searchDetail(req, res) {
     let m = await storage.getModel(req.params.model)
@@ -207,42 +239,59 @@ export default class Searcher extends NxusModule {
     templater.render('search-'+model+'-detail', opts).then(res.send.bind(res))
   }
 
-  _buildQuery(q, model) {
-    let query = {model: model}
-    let opts = this.modelConfig[model]
-    if(opts.fields.length > 1) {
-      query['or'] = []
-      for(let field of opts.fields) {
-        var o = {}
-        o[field] = q
-        query.or.push(o)
+  _buildQuery(model, text, opts) {
+    let query = {
+        query: {
+          bool: {
+            should: [
+            ],
+            filter: [
+              {term: {model: model}}
+            ]
+          }
       }
-    } else {
-      query[opts.fields[0]] = q
     }
+
+    for(let field of this.modelConfig[model].fields) {
+      var o = {}
+      o[field] = text
+      query.query.bool.should.push({match: o})
+    }
+    
+    if (opts) {
+      if (opts.filters) {
+        for (let key in opts.filters) {
+          let f = {}
+          f[key] = opts.filters[key]
+          query.query.bool.filter.push({term: f})
+        }
+      }
+      if (opts.limit) {
+        query.size = opts.limit
+      }
+      if (opts.skip) {
+        query.from = opts.skip
+      }
+      if (opts.sort) {
+        query.sort = opts.sort;
+      }
+    }
+    return query
   }
   
   async _handleCount(req, res, model) {
     let q = req.param('q') || {}
     let [SD, M] = await storage.getModel(['searchdocument', model])
-    let query = this._buildQuery(q, model)
+    let query = this._buildQuery(model, q)
     return SD.count().where(query)
   }
 
   async _handleSearch(req, res, model) {
     let q = req.param('q') || {}
-    let limit = 10
+    let limit = this.itemsPerPage
     let skip = ((parseInt(req.param('page')) || 1)-1)*limit
     this.log.debug('Searching for', model, q)
-    let [SD, M] = await storage.getModel(['searchdocument', model])
-    let query = this._buildQuery(q, model)
-    let ids = await SD.find().where(query).skip(skip).limit(limit)
-    let opts = this.modelConfig[model]
-    ids = _.pluck(ids, 'id')
-    let idq = M.find().where({id: ids})
-    if(opts.populate)
-      idq.populate(opts.populate)
-    return idq
+    return this.search(model, q, {limit, skip})
   }
 
   async _handleCreate(model, doc) {
