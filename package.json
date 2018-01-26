@@ -28,7 +28,7 @@
     "nxus-templater": "^4.0.0",
     "pluralize": "^1.2.1",
     "underscore": "^1.8.3",
-    "waterline-elasticsearch": "https://github.com/seabourne/waterline-elasticsearch.git#master"
+    "waterline-elasticsearch": "https://github.com/seabourne/waterline-elasticsearch.git#4.0"
   },
   "devDependencies": {
     "babel-cli": "^6.9.0",
