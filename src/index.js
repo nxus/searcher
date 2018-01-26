@@ -36,7 +36,8 @@
  *          "adapter": "searcher",
  *          "host": "<host address>:9200",
  *          "log": "warning",
- *          "index": "searcher"
+ *          "index": "searcher",
+ *          "mappings": {"searchdocument": {"properties": {"id": {"type":"keyword"}, "model":{"type": "keyword"}}}}
  *        }
  *      }
  *    }
@@ -126,6 +127,7 @@ export default class Searcher extends NxusModule {
 
   _setDefaultConfig() {
     var conf = app.config.storage
+    var defaultMapping = {"searchdocument": {"properties": {"id": {"type":"keyword"}, "model":{"type": "keyword"}}}}
     if(!conf.adapters) conf.adapters = {}
     if(!conf.connections) conf.connections = {}
     if(!conf.adapters.searcher) {
@@ -134,8 +136,12 @@ export default class Searcher extends NxusModule {
          "adapter": "searcher",
          "host": app.config.host+":9200",
          "log": "warning",
-         "index": "searcher"
+         "index": "searcher",
+         "mappings": defaultMapping
       }
+    }
+    if(!conf.connections.searcher.mappings) {
+      conf.connections.searcher.mappings = defaultMapping
     }
   }
 
@@ -171,13 +177,7 @@ export default class Searcher extends NxusModule {
   async search(model, text, opts) {
     let [SD, M] = await storage.getModel(['searchdocument', model])
     let query = this._buildQuery(model, text, opts)
-    let ids = await SD.find().where(query)
-    let populate = this.modelConfig[model].populate
-    ids = _.pluck(ids, 'id')
-    let idq = M.find().where({id: ids})
-    if(populate)
-      idq.populate(populate)
-    return idq
+    return  SD.find().where(query)
   }
 
   /**
@@ -190,15 +190,14 @@ export default class Searcher extends NxusModule {
     let [SD, M] = await storage.getModel(['searchdocument', model])
     let objs = await M.find()
     let obj = objs[0]
-//    objs.forEach(async (obj) => {
+    objs.forEach(async (obj) => {
       let exists = await SD.count().where({id: obj.id})
-      console.log("exists", exists)
       if (exists >= 1) {
         await this._handleUpdate(model, obj)
       } else {
         await this._handleCreate(model, obj)
       }
-//    })
+    })
   }
 
   
@@ -239,10 +238,16 @@ export default class Searcher extends NxusModule {
     templater.render('search-'+model+'-detail', opts).then(res.send.bind(res))
   }
 
-  _buildQuery(model, text, opts) {
+  _buildQuery(model, text, opts={}) {
+    opts.match_query = opts.match_query || 'match'
+    if (!opts.hasOwnProperty('minimum_should_match')) {
+      opts.minimum_should_match = 1
+    }
+    
     let query = {
         query: {
           bool: {
+            minimum_should_match: opts.minimum_should_match,
             should: [
             ],
             filter: [
@@ -252,30 +257,32 @@ export default class Searcher extends NxusModule {
       }
     }
 
-    for(let field of this.modelConfig[model].fields) {
+    let fields = opts.fields || this.modelConfig[model].fields
+    
+    for(let field of fields) {
       var o = {}
-      o[field] = text
-      query.query.bool.should.push({match: o})
+      o[opts.match_query] = {}
+      o[opts.match_query][field] = text
+      query.query.bool.should.push(o)
     }
     
-    if (opts) {
-      if (opts.filters) {
-        for (let key in opts.filters) {
-          let f = {}
-          f[key] = opts.filters[key]
-          query.query.bool.filter.push({term: f})
-        }
-      }
-      if (opts.limit) {
-        query.size = opts.limit
-      }
-      if (opts.skip) {
-        query.from = opts.skip
-      }
-      if (opts.sort) {
-        query.sort = opts.sort;
+    if (opts.filters) {
+      for (let key in opts.filters) {
+        let f = {}
+        f[key] = opts.filters[key]
+        query.query.bool.filter.push({term: f})
       }
     }
+    if (opts.limit) {
+      query.size = opts.limit
+    }
+    if (opts.skip) {
+      query.from = opts.skip
+    }
+    if (opts.sort) {
+      query.sort = opts.sort;
+    }
+
     return query
   }
   
@@ -291,7 +298,15 @@ export default class Searcher extends NxusModule {
     let limit = this.itemsPerPage
     let skip = ((parseInt(req.param('page')) || 1)-1)*limit
     this.log.debug('Searching for', model, q)
-    return this.search(model, q, {limit, skip})
+    let results = await this.search(model, q, {limit, skip})
+    let ids = await SD.find().where(query)
+    let populate = this.modelConfig[model].populate
+    ids = _.pluck(ids, 'id')
+    let idq = M.find().where({id: ids})
+    if(populate)
+      idq.populate(populate)
+    return idq
+    
   }
 
   async _handleCreate(model, doc) {

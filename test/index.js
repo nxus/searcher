@@ -38,6 +38,7 @@ describe("Searcher", () => {
       q.should.eql({
         query: {
           bool: {
+            minimum_should_match: 1,
             should: [
               {match: {name: "text"}},
               {match: {title: "text"}},              
@@ -54,6 +55,7 @@ describe("Searcher", () => {
       q.should.eql({
         query: {
           bool: {
+            minimum_should_match: 1,
             should: [
               {match: {name: "text"}},
               {match: {title: "text"}}
@@ -71,6 +73,7 @@ describe("Searcher", () => {
       q.should.eql({
         query: {
           bool: {
+            minimum_should_match: 1,
             should: [
               {match: {name: "text"}},
               {match: {title: "text"}}
@@ -89,6 +92,7 @@ describe("Searcher", () => {
       q.should.eql({
         query: {
           bool: {
+            minimum_should_match: 1,
             should: [
               {match: {name: "text"}},
               {match: {title: "text"}}
@@ -99,6 +103,56 @@ describe("Searcher", () => {
           }
         },
         sort: ["name", {"title": "desc"}]
+      })
+    })
+    it("should take an alternate match query type", () => {
+      let q = module._buildQuery("test", "text", {match_query: 'prefix'})
+      q.should.eql({
+        query: {
+          bool: {
+            minimum_should_match: 1,
+            should: [
+              {prefix: {name: "text"}},
+              {prefix: {title: "text"}}
+            ],
+            filter: [
+              {term: {model: "test"}}
+            ]
+          }
+        }
+      })
+    })
+    it("should take a minimum_should_match ovveride", () => {
+      let q = module._buildQuery("test", "text", {minimum_should_match: 0})
+      q.should.eql({
+        query: {
+          bool: {
+            minimum_should_match: 0,
+            should: [
+              {match: {name: "text"}},
+              {match: {title: "text"}}
+            ],
+            filter: [
+              {term: {model: "test"}}
+            ]
+          }
+        }
+      })
+    })
+    it("should take an alternate list of fields", () => {
+      let q = module._buildQuery("test", "text", {fields: ["title"]})
+      q.should.eql({
+        query: {
+          bool: {
+            minimum_should_match: 1,
+            should: [
+              {match: {title: "text"}}
+            ],
+            filter: [
+              {term: {model: "test"}}
+            ]
+          }
+        }
       })
     })
   })

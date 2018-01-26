@@ -12,6 +12,11 @@ export default BaseModel.extend({
   identity: 'searchdocument',
   connection: 'searcher',
   attributes: {
-    
+    id: {
+      type: "string"
+    },
+    model: {
+      type: "string"
+    }
   }
 });
