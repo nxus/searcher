@@ -68,25 +68,6 @@ describe("Searcher", () => {
         }
       })
     })
-    it("should take a text field and paging options", () => {
-      let q = module._buildQuery("test", "text", {limit: 10, skip: 5})
-      q.should.eql({
-        query: {
-          bool: {
-            minimum_should_match: 1,
-            should: [
-              {match: {name: "text"}},
-              {match: {title: "text"}}
-            ],
-            filter: [
-              {term: {model: "test"}}
-            ]
-          }
-        },
-        size: 10,
-        from: 5
-      })
-    })
     it("should take a text field and sort option", () => {
       let q = module._buildQuery("test", "text", {sort: ["name", {"title": "desc"}]})
       q.should.eql({
@@ -147,6 +128,27 @@ describe("Searcher", () => {
             minimum_should_match: 1,
             should: [
               {match: {title: "text"}}
+            ],
+            filter: [
+              {term: {model: "test"}}
+            ]
+          }
+        }
+      })
+    })
+    it("should take a match options opt", () => {
+      let q = module._buildQuery("test", "long text phrase", {fields: ["title"], match_options: {
+        operator: "and",
+        minimum_should_match: "75%"
+      }})
+      q.should.eql({
+        query: {
+          bool: {
+            minimum_should_match: 1,
+            should: [
+              {match: {title: {query: "long text phrase",
+                              operator: "and",
+                              minimum_should_match: "75%"}}}
             ],
             filter: [
               {term: {model: "test"}}

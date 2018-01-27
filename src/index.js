@@ -175,11 +175,24 @@ export default class Searcher extends NxusModule {
    * @return {Array}  result objects 
    */
   async search(model, text, opts) {
-    let [SD, M] = await storage.getModel(['searchdocument', model])
+    let SD = await storage.getModel('searchdocument')
     let query = this._buildQuery(model, text, opts)
-    return  SD.find().where(query)
+    return  SD.find().where(query).limit(opts.limit).skip(opts.skip)
   }
 
+  /**
+   * Count results of model for text matches.
+   * @param  {string} model the model identity
+   * @param  {string} text  search value
+   * @param  {Object} opts Options for {filters, limit, skip, sort}
+   * @return {Array}  result objects 
+   */
+  async count(model, text, opts) {
+    let SD = await storage.getModel('searchdocument')
+    let query = this._buildQuery(model, text, opts)
+    return  SD.count().where(query)
+  }
+  
   /**
    * Reindex all of a model's documents
    * @param  {string} model the model identity
@@ -240,6 +253,7 @@ export default class Searcher extends NxusModule {
 
   _buildQuery(model, text, opts={}) {
     opts.match_query = opts.match_query || 'match'
+
     if (!opts.hasOwnProperty('minimum_should_match')) {
       opts.minimum_should_match = 1
     }
@@ -260,9 +274,15 @@ export default class Searcher extends NxusModule {
     let fields = opts.fields || this.modelConfig[model].fields
     
     for(let field of fields) {
-      var o = {}
+      var m, o = {}
       o[opts.match_query] = {}
-      o[opts.match_query][field] = text
+      
+      if (opts.match_options) {
+        m = Object.assign({query: text}, opts.match_options)
+      } else {
+        m = text
+      }
+      o[opts.match_query][field] = m
       query.query.bool.should.push(o)
     }
     
@@ -272,12 +292,6 @@ export default class Searcher extends NxusModule {
         f[key] = opts.filters[key]
         query.query.bool.filter.push({term: f})
       }
-    }
-    if (opts.limit) {
-      query.size = opts.limit
-    }
-    if (opts.skip) {
-      query.from = opts.skip
     }
     if (opts.sort) {
       query.sort = opts.sort;
