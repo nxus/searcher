@@ -96,6 +96,10 @@ import _ from 'underscore'
 import Promise from 'bluebird'
 import pluralize from 'pluralize'
 
+function timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 /**
  * The Search class enables automated searching of models using different adapters.
  */
@@ -202,15 +206,24 @@ export default class Searcher extends NxusModule {
     // TODO We should use that.
     let [SD, M] = await storage.getModel(['searchdocument', model])
     let objs = await M.find()
-    let obj = objs[0]
-    objs.forEach(async (obj) => {
-      let exists = await SD.count().where({id: obj.id})
-      if (exists >= 1) {
-        await this._handleUpdate(model, obj)
-      } else {
-        await this._handleCreate(model, obj)
-      }
-    })
+
+    // Wait to let queue empty
+    while (objs.length) {
+      objs.slice(0, 100).forEach(async (obj) => {
+        let exists = await SD.count().where({id: obj.id})
+        try {
+          if (exists >= 1) {
+            return this._handleUpdate(model, obj)
+          } else {
+            return this._handleCreate(model, obj)
+          }
+        } catch(e) {
+          this.log.error("error reindexing", e)
+        }
+      })
+      objs = objs.slice(100)
+      await timeout(500)
+    }
   }
 
   
@@ -327,34 +340,22 @@ export default class Searcher extends NxusModule {
     if(!this.modelConfig[model]) return
     doc.model = model
     let SD = await storage.getModel('searchdocument')
-    try {
-      await SD.create(doc)
-      this.log.debug('Search document created', model)
-    } catch (e) {
-      this.log.error('Could not create search doc', e)
-    }
+    await SD.create(doc)
+    this.log.debug('Search document created', model)
   }
 
   async _handleDestroy(model, doc) {
     if(!this.modelConfig[model]) return
     let SD = await storage.getModel('searchdocument')
-    try {
-      await SD.destroy().where(doc.id)
-      this.log.debug('Search document deleted', model)
-    } catch (e) {
-      this.log.error('Could not delete search doc', e)
-    }
+    await SD.destroy().where(doc.id)
+    this.log.debug('Search document deleted', model)
   }
 
   async _handleUpdate(model, doc) {
     if(!this.modelConfig[model]) return
     let SD = await storage.getModel('searchdocument')
-    try {
-      await SD.update(doc.id, doc)
-      this.log.debug('Search document updated', model)
-    } catch (e) {
-      this.log.error('Could not update search doc', e)
-    }
+    await SD.update(doc.id, doc)
+    this.log.debug('Search document updated', model)
   }
 } 
 
