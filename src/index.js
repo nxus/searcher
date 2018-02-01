@@ -300,11 +300,7 @@ export default class Searcher extends NxusModule {
     }
     
     if (opts.filters) {
-      for (let key in opts.filters) {
-        let f = {}
-        f[key] = opts.filters[key]
-        query.query.bool.filter.push({term: f})
-      }
+      query.query.bool.filter.push(...opts.filters)
     }
     if (opts.sort) {
       query.sort = opts.sort;
@@ -338,7 +334,7 @@ export default class Searcher extends NxusModule {
 
   async _handleCreate(model, doc) {
     if(!this.modelConfig[model]) return
-    doc.model = model
+    doc = Object.assign({model}, doc)
     let SD = await storage.getModel('searchdocument')
     await SD.create(doc)
     this.log.debug('Search document created', model)

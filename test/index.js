@@ -51,7 +51,7 @@ describe("Searcher", () => {
       })
     })
     it("should take a text field and extra filters", () => {
-      let q = module._buildQuery("test", "text", {filters: {type: 'value'}})
+      let q = module._buildQuery("test", "text", {filters: [{term: {type: 'value'}}]})
       q.should.eql({
         query: {
           bool: {
