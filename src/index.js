@@ -201,7 +201,7 @@ export default class Searcher extends NxusModule {
    * Reindex all of a model's documents
    * @param  {string} model the model identity
    */
-  async reindex(model) {
+  async reindex(model, concurrent=100) {
     // TODO ElasticSearch offers the ability to reindex by building a new index and then replacing
     // TODO We should use that.
     let [SD, M] = await storage.getModel(['searchdocument', model])
@@ -209,7 +209,7 @@ export default class Searcher extends NxusModule {
 
     // Wait to let queue empty
     while (objs.length) {
-      objs.slice(0, 100).forEach(async (obj) => {
+      objs.slice(0, concurrent).forEach(async (obj) => {
         let exists = await SD.count().where({id: obj.id})
         try {
           if (exists >= 1) {
@@ -221,8 +221,8 @@ export default class Searcher extends NxusModule {
           this.log.error("error reindexing", e)
         }
       })
-      objs = objs.slice(100)
-      await timeout(500)
+      objs = objs.slice(concurrent)
+      await timeout(100)
     }
   }
 
