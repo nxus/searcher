@@ -28,6 +28,19 @@ describe("Searcher", () => {
     })
   });
 
+  describe("Indexes", () => {
+    before(() => {
+      module = new Searcher()
+    })
+    it("should register the default document", () => {
+      module._searchDocuments.should.have.property('', 'searchdocument')
+    })
+    it("createSearchDocument should register new model", () => {
+      module._createSearchDocument('second')
+      module._searchDocuments.should.have.property('second', 'searchdocument-second')
+    })
+  })
+  
   describe("Query", () => {
     before(() => {
       module = new Searcher()
