@@ -489,6 +489,7 @@ class Searcher extends NxusModule {
 
   async _handleUpdate(model, doc) {
     if(!this.modelConfig[model]) return
+    doc = Object.assign({model}, doc)
     let SD = await this._getSearchDocument(model)
     await SD.update(doc.id, doc)
     this.log.debug('Search document updated', model)
