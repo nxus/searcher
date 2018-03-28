@@ -311,7 +311,17 @@ class Searcher extends NxusModule {
   async search(model, text, opts) {
     let SD = await this._getSearchDocument(model)
     let query = this._buildQuery(model, text, opts)
-    return  SD.find().where(query).limit(opts.limit).skip(opts.skip)
+    return new Promise((resolve, reject) => {
+      SD.query({where: query, limit: opts.limit, skip: opts.skip}, (err, response) => {
+        if (err) return reject(err)
+        var results = _.map(response.hits.hits, function(hit) {
+          return Object.assign({_score: hit._score}, hit._source);
+        })
+        results.aggregations = response.aggregations
+        results.total = response.hits.total
+        resolve(results)
+      })
+    })
   }
 
   /**
@@ -437,7 +447,9 @@ class Searcher extends NxusModule {
       o[opts.match_query][field] = m
       query.query.bool.should.push(o)
     }
-    
+    if (opts.aggs) {
+      query.aggs = opts.aggs
+    }
     if (opts.filters) {
       query.query.bool.filter.push(...opts.filters)
     }
