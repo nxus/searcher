@@ -49,6 +49,11 @@
  *    searcher.searchable('user', {fields: 'firstName'})
  *    searcher.searchable('user', {fields: ['firstName', 'lastName']})
  *
+ * You can also specify a processor function (Promise or sync) to modify
+ * the  document before indexing - if there are elasticsearch-incompatible fields, etc
+ *    
+ *    searcher.searchable('user', {processor: (doc) => {return doc} })
+ *
  * ## Optional Configuration
  * 
  * Connections in the `storage` config correspond to ElasticSearch indexes. In addition to the `index` name, you may configure
@@ -484,9 +489,19 @@ class Searcher extends NxusModule {
     
   }
 
+  async _documentToIndex(model, doc) {
+    doc = Object.assign({model}, doc)
+
+    let opts = this.modelConfig[model]
+    if (opts.processor) {
+      doc = await opts.processor(doc)
+    }
+    return doc
+  }
+
   async _handleCreate(model, doc) {
     if(!this.modelConfig[model]) return
-    doc = Object.assign({model}, doc)
+    doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     await SD.create(doc)
     this.log.debug('Search document created', model)
@@ -501,7 +516,7 @@ class Searcher extends NxusModule {
 
   async _handleUpdate(model, doc) {
     if(!this.modelConfig[model]) return
-    doc = Object.assign({model}, doc)
+    doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     await SD.update(doc.id, doc)
     this.log.debug('Search document updated', model)
