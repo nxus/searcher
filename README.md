@@ -163,11 +163,13 @@ To help you map these parameters to the ES query, here are two calls to search a
 
 ### Routes
 
-Based on the model identify, Searcher will create the following routes
+Based on the model identify, Searcher will create the following route
 
-    /search/user
+    /search/:model
 
-which accepts a search parameter `q`. So to search for the term 'pizza':
+which accepts a search parameter `q`.
+
+Assuming the model 'user' has been registered as searchable, to search for the term 'mike':
 
     /search/user?q=mike
 
