@@ -1,4 +1,4 @@
-/* 
+/*
 * @Author: Mike Reich
 * @Date:   2016-02-05 07:45:34
 * @Last Modified 2016-05-20
@@ -6,17 +6,17 @@
 /**
  *
  * [![Build Status](https://travis-ci.org/nxus/searcher.svg?branch=master)](https://travis-ci.org/nxus/searcher)
- * 
+ *
  * The Searcher module enables easy searching of Nxus models using ElasticSearch.
- * 
+ *
  * # Installation
- * 
+ *
  *     > npm install nxus-searcher --save
- * 
+ *
  * # Usage
  *
  * ## Configuration
- * 
+ *
  * The Searcher module depends on @nxus/storage.  The first step is adding and configuring the search adapter in .nxusrc (The following config is default and added for you, see the Optional Configuration section below for common additions):
  *
  *    "storage": {
@@ -37,13 +37,13 @@
  *    }
  *
  * ## Register model
- * Now that the correct Storage adapters are configured, you'll need to tell Searcher which models you want to enable 
+ * Now that the correct Storage adapters are configured, you'll need to tell Searcher which models you want to enable
  * search using the `searchable` method. Searchable accepts an identity for a model which has already been registered.
  *
  *    import {searcher} from 'nxus-searcher'
  *    searcher.searchable('user')
  *
- * By default, Searcher will look for a field named `title`, `name`, or `description` to use as the search field. You can specify different, or 
+ * By default, Searcher will look for a field named `title`, `name`, or `description` to use as the search field. You can specify different, or
  * multiple fields to search by specifying a second options parameter, with the `fields` key:
  *
  *    searcher.searchable('user', {fields: 'firstName'})
@@ -51,14 +51,14 @@
  *
  * You can also specify a processor function (Promise or sync) to modify
  * the  document before indexing - if there are elasticsearch-incompatible fields, etc
- *    
+ *
  *    searcher.searchable('user', {processor: (doc) => {return doc} })
  *
  * ## Optional Configuration
- * 
+ *
  * Connections in the `storage` config correspond to ElasticSearch indexes. In addition to the `index` name, you may configure
  * the `mappings` and `analysis` sections here to control ElasticSearch's index and query behavior.
- * 
+ *
  * If you provide your own mapping config, it is required that you specify the `id` and `model` fields as `keywords`:
  *     "mappings": {"searchdocument": {"properties": {"id": {"type":"keyword"}, "model":{"type": "keyword"}}}}
  *
@@ -95,28 +95,28 @@
  *        }
  *      },
  * ```
- * 
+ *
  * ## Multiple Search Indexes
- * 
+ *
  * By default, you may index many different storage model documents to one ElasticSearch index, for when you don't
  * need separate config to handle field differences between models.
- * 
+ *
  * If you need to maintain separate search indexes, you first need to add a new connection to `.nxusrc` based on the
  * default connection fields and mapping listed in Configuration above.
- * 
+ *
  * When registering a model as searchable, you may pass an `index` option to specify a which connection/index to use
- * 
+ *
  *  `searcher.searchable('model', {index: 'alternate'})
- * 
+ *
  * ## Queries
- * 
+ *
  * `searcher.search(model, term, opts)` takes a number of options to provide access to most of ElasticSearch's
  * query format.
- * 
- * It is assumed we are always performing a boolean OR (`should`) of query term matches (by default, across the 
- * field names registered for searching the model) but requiring at least one match, and in addition performing 
+ *
+ * It is assumed we are always performing a boolean OR (`should`) of query term matches (by default, across the
+ * field names registered for searching the model) but requiring at least one match, and in addition performing
  * some required `filter`ing (by default, to limit results to the appropriate `model`). Options that control this:
- * 
+ *
  *  * `minimum_should_match` [1] to make the results more or less restrictive to the search term
  *  * `fields` [fields specified to `searchable`] override which fields to full-text search
  *  * `match_query` [match] the ES query to use for full-text - maybe `prefix` or `match_phrase` instead.
@@ -135,7 +135,7 @@
  *           should: [
  *             {match: {name: "search term"}},
  *             {match: {title: "search term"}},
- *             {match: {description: "search term"}},              
+ *             {match: {description: "search term"}},
  *           ],
  *           filter: [
  *             {term: {model: "test-model"}}
@@ -143,7 +143,7 @@
  *         }
  *       }
  *  ```
- * 
+ *
  *  ```
  *  searcher.search('test-model', 'search term', {
  *    minimum_should_match: "50%",
@@ -153,8 +153,8 @@
  *    filters: [{term: {type: 'person'}}],
  *    sort: [{name: 'desc'}, 'lastName']
  *  })
- *  ``` 
- *  ``` 
+ *  ```
+ *  ```
  *       query: {
  *         bool: {
  *           minimum_should_match: "50%",
@@ -169,7 +169,7 @@
  *         }
  *       },
  *       sort: [{name: 'desc'}, 'lastName']
- *  ``` 
+ *  ```
  *
  * ## Routes
  * Based on the model identify, Searcher will create the following routes
@@ -181,23 +181,23 @@
  *     /search/user?q=mike
  *
  * The search wil return a list of results using the views below.
- * 
+ *
  * ## Views
  * You can provide search specific views to be used for search results:
  *
  * 1. search-user-list: the list view for returned search results.
  * 1. search-user-detail: the detail view for an individual search result.
- * 
- * Alternatively, if no search templates are found, searcher will automatically use the `@nxus/base-ui` views for any model 
+ *
+ * Alternatively, if no search templates are found, searcher will automatically use the `@nxus/base-ui` views for any model
  * that is searchable (if they exist).
  *
  * 1. view-user-list: the list view used to display search results.
  * 1. view-user-detail: the detail view linked to from the list view.
  *
- * Finally, searcher will use default list/detail views if no other templates are found. 
- * 
+ * Finally, searcher will use default list/detail views if no other templates are found.
+ *
  * # API
- * 
+ *
  */
 
 'use strict';
@@ -225,7 +225,7 @@ class Searcher extends NxusModule {
 
     this.pageTemplate = opts.pageTemplate || 'page'
     this.itemsPerPage = opts.itemsPerPage || 20
-    
+
     this.modelConfig = {}
 
     app.before('init', () => {
@@ -284,8 +284,26 @@ class Searcher extends NxusModule {
 
   /**
    * Register a model to be searchable.
+   *
+   * These options properties may be specified:
+   * *   `fields` (string|Array<string>) - fields to search, specified
+   *       as a single field name or an array of field names
+   *       (default setting is `['title', 'name', 'description']`)
+   * *   `index` (string) - name of connection/index to use for search
+   * *   `processor` (Function) - a processor function to modify
+   *       documents before indexing; passed a document instance, it
+   *       should return the modified instance (sync) or a Promise that
+   *       resolves to the modified instance (async)
+   * *   `populate` - a Waterline `populate()` parameter, used to
+   *       populate document instances for the search results list view
+   *
+   * A typical use for the processor function is to remove fields that
+   * are incompatible with Elasticsearch (e.g. polymorphic fields).
+
+
+   *
    * @param  {string} model the model identity
-   * @param  {Object} opts  Options {fields, populate, index}
+   * @param  {Object} opts  options
    */
   searchable(model, opts = {}) {
     this.log.debug('Registering searchable', model, opts)
@@ -300,9 +318,9 @@ class Searcher extends NxusModule {
     storage.on('model.update', ::this._handleUpdate)
     storage.on('model.destroy', ::this._handleDestroy)
 
-    templater.default().template(__dirname+'/templates/searcher-detail.ejs', this.pageTemplate,  'search-'+model+'-detail')
+    templater.default().template(__dirname+'/templates/searcher-detail.ejs', this.pageTemplate, 'search-'+model+'-detail')
     templater.default().template(__dirname+'/templates/searcher-list.ejs', this.pageTemplate, 'search-'+model+'-list')
-    
+
   }
 
 
@@ -311,7 +329,7 @@ class Searcher extends NxusModule {
    * @param  {string} model the model identity
    * @param  {string} text  search value
    * @param  {Object} opts Options for {filters, limit, skip, sort}
-   * @return {Array}  result objects 
+   * @return {Array}  result objects
    */
   async search(model, text, opts) {
     let SD = await this._getSearchDocument(model)
@@ -334,14 +352,14 @@ class Searcher extends NxusModule {
    * @param  {string} model the model identity
    * @param  {string} text  search value
    * @param  {Object} opts Options for {filters, limit, skip, sort}
-   * @return {Array}  result objects 
+   * @return {Array}  result objects
    */
   async count(model, text, opts) {
     let SD = await this._getSearchDocument(model)
     let query = this._buildQuery(model, text, opts)
-    return  SD.count().where(query)
+    return SD.count().where(query)
   }
-  
+
   /**
    * Reindex all of a model's documents. Different services concurrent request and queue limits are parameters
    * @param  {string} model the model identity
@@ -357,7 +375,7 @@ class Searcher extends NxusModule {
     let objs = await M.find()
 
     objs = objs.slice(start)
-    
+
     // Wait to let queue empty
     while (objs.length) {
       objs.slice(0, concurrent).forEach(async (obj) => {
@@ -380,42 +398,53 @@ class Searcher extends NxusModule {
   _getSearchDocument(model) {
     return storage.getModel(this.modelConfig[model].searchdocument)
   }
-  
+
+  async _getModelAttributes(model) {
+    let attributes = (await storage.getModel(model))._attributes
+    let flattened = []
+    for (let key in Object.keys(attributes))
+      flattened.push(Object.assign({name: key}, attributes[key]))
+    return flattened
+  }
+
   async _searchDetail(req, res) {
-    let m = await storage.getModel(req.params.model)
-    let r = await m.findOne(req.param('id'))
-    let opts = {}
-    opts[model] = r
-    opts.inst = r
-    opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name = k; return ret})
-    opts.title = 'View '+r.id
+    let model = req.params.model
+    let M = await storage.getModel(model)
+    let r = await M.findOne(req.param('id'))
+    let opts = {
+          [model]: r,
+          inst: r,
+          attributes: await this._getModelAttributes(model),
+          title: 'View '+r.id
+        }
     templater.render('search-'+model+'-detail', opts).then(res.send.bind(res))
   }
 
   async _searchResults(req, res) {
-    modelOpts = this.modelConfig[this.params.model]
+    let model = req.params.model
+    let modelOpts = this.modelConfig[model]
     if (modelOpts === undefined) {
       res.status(404).send("Model Not Found")
       return
     }
-    let model = modelOpts.model
+    model = modelOpts.model // switch to canonical name (original may have been plural)
+    let q = req.param('q') || {}
     let page = parseInt(req.param('page')) || 1
-    let results = await this._handleSearch(req, res, model)
-    let total = await this._handleCount(req, res, model)
-    let totalPages = total > 0 ? Math.ceil(total/10) : 0
+    let results = await this._handleSearch(req, res, model, q, page)
+    let total = await this._handleCount(req, res, model, q)
     let opts = {
-      total,
-      page,
-      itemsPerPage: 10,
-    }
-    opts[pluralize(model)] = results
-    opts.title = 'Search Results for '+req.param('q')
-    let m = await storage.getModel(model)
-    opts.attributes = _.map(_.keys(M._attributes), (k) => {let ret = M._attributes[k]; ret.name =k; return ret})
-    opts.insts = results
-    opts.base = "/search/"+pluralize(model)+"?q="+encodeURIComponent(req.param('q'))+"&"
-    opts.req = req
-    templater.render('search-'+model+'-detail', opts).then(res.send.bind(res))
+          [pluralize(model)]: results,
+          insts: results,
+          attributes: await this._getModelAttributes(model),
+          title: 'Search Results for '+q,
+          total,
+          page,
+          itemsPerPage: this.itemsPerPage,
+          totalPages: Math.ceil(total / this.itemsPerPage),
+          base: "/search/"+pluralize(model)+"?q="+encodeURIComponent(req.param('q'))+"&",
+          req
+        }
+    templater.render('search-'+model+'-list', opts).then(res.send.bind(res))
   }
 
   _buildQuery(model, text, opts={}) {
@@ -424,7 +453,7 @@ class Searcher extends NxusModule {
     if (!opts.hasOwnProperty('minimum_should_match')) {
       opts.minimum_should_match = 1
     }
-    
+
     let query = {
         query: {
           bool: {
@@ -439,11 +468,11 @@ class Searcher extends NxusModule {
     }
 
     let fields = opts.fields || this.modelConfig[model].fields
-    
+
     for(let field of fields) {
       var m, o = {}
       o[opts.match_query] = {}
-      
+
       if (opts.match_options) {
         m = Object.assign({query: text}, opts.match_options)
       } else {
@@ -464,29 +493,25 @@ class Searcher extends NxusModule {
 
     return query
   }
-  
-  async _handleCount(req, res, model) {
-    let q = req.param('q') || {}
+
+  async _handleCount(req, res, model, q) {
     let SD = await this._getSearchDocument(model)
-    let M = await storage.getModel(model)
     let query = this._buildQuery(model, q)
     return SD.count().where(query)
   }
 
-  async _handleSearch(req, res, model) {
-    let q = req.param('q') || {}
+  async _handleSearch(req, res, model, q, page) {
+    let M = await storage.getModel(model)
     let limit = this.itemsPerPage
-    let skip = ((parseInt(req.param('page')) || 1)-1)*limit
+    let skip = (page - 1) * limit
     this.log.debug('Searching for', model, q)
     let results = await this.search(model, q, {limit, skip})
-    let ids = await SD.find().where(query)
     let populate = this.modelConfig[model].populate
-    ids = _.pluck(ids, 'id')
-    let idq = M.find().where({id: ids})
-    if(populate)
+    let idq = M.find().where({id: _.pluck(results, 'id')})
+    if (populate)
       idq.populate(populate)
     return idq
-    
+
   }
 
   async _documentToIndex(model, doc) {
@@ -521,7 +546,7 @@ class Searcher extends NxusModule {
     await SD.update(doc.id, doc)
     this.log.debug('Search document updated', model)
   }
-} 
+}
 
 let searcher = Searcher.getProxy()
 
