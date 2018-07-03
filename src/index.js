@@ -110,66 +110,12 @@
  *
  * ## Queries
  *
- * `searcher.search(model, term, opts)` takes a number of options to provide access to most of ElasticSearch's
- * query format.
- *
- * It is assumed we are always performing a boolean OR (`should`) of query term matches (by default, across the
- * field names registered for searching the model) but requiring at least one match, and in addition performing
- * some required `filter`ing (by default, to limit results to the appropriate `model`). Options that control this:
- *
- *  * `minimum_should_match` [1] to make the results more or less restrictive to the search term
- *  * `fields` [fields specified to `searchable`] override which fields to full-text search
- *  * `match_query` [match] the ES query to use for full-text - maybe `prefix` or `match_phrase` instead.
- *  * `match_options` [{}] additional ES options for each field level query
- *  * 'filters' [[]] array of additional ES filter objects to restrict the query
- *  * `sort` [] array of sort fields
- *
- * It is highly recommended that you read the ElasticSearch Query DSL documentation to change most of these options.
- * To help you map these parameters to the ES query, here are two calls to search and the resulting query:
- *
- * `searcher.search('test-model', 'search term')`
- *  ```
- *       query: {
- *         bool: {
- *           minimum_should_match: 1,
- *           should: [
- *             {match: {name: "search term"}},
- *             {match: {title: "search term"}},
- *             {match: {description: "search term"}},
- *           ],
- *           filter: [
- *             {term: {model: "test-model"}}
- *           ]
- *         }
- *       }
- *  ```
- *
- *  ```
- *  searcher.search('test-model', 'search term', {
- *    minimum_should_match: "50%",
- *    fields: ['name', 'lastName'],
- *    match_query: "match_phrase",
- *    match_options: {analyzer: 'my-analyzer'},
- *    filters: [{term: {type: 'person'}}],
- *    sort: [{name: 'desc'}, 'lastName']
- *  })
- *  ```
- *  ```
- *       query: {
- *         bool: {
- *           minimum_should_match: "50%",
- *           should: [
- *             {match_phrase: {name: "search term", analyzer: 'my-analyzer'}},
- *             {match_phrase: {lastName: "search term", analyzer: 'my-analyzer'}},
- *           ],
- *           filter: [
- *             {term: {model: "test-model"}},
- *             {term: {type: "person"}}
- *           ]
- *         }
- *       },
- *       sort: [{name: 'desc'}, 'lastName']
- *  ```
+ * The `searcher.search(model, query, opts)` method searches a model for
+ * text matches. It accepts either a text string as the `query`
+ * parameter, or an ElasticSearch query object. For most searches, you
+ * can provide a text string and let it assemble a query object. For
+ * more complex searches, you can define your own query object. (The
+ * `searcher.count(model, query, opts)` method works the same way.)
  *
  * ## Routes
  * Based on the model identify, Searcher will create the following routes
@@ -299,8 +245,6 @@ class Searcher extends NxusModule {
    *
    * A typical use for the processor function is to remove fields that
    * are incompatible with Elasticsearch (e.g. polymorphic fields).
-
-
    *
    * @param  {string} model the model identity
    * @param  {Object} opts  options
@@ -326,20 +270,103 @@ class Searcher extends NxusModule {
 
   /**
    * Search a model for text matches.
+   *
+   * The `query` parameter is either a text string or an ElasticSearch
+   * query object. Specify a text string to let the `search()` method
+   * assemble the query object; for more complex searches, specify a
+   * query object that you've created.
+   *
+   * When the `search()` method assembles the query object, it always
+   * performs a boolean OR (`should`) of field queries. In addition, it
+   * performs filtering to limit the results to the appropriate `model`.
+   *
+   * If you supply the query object, be sure it includes filtering to
+   * limit the results to the appropriate `model`.
+   *
+   * These options may be specified to control the query assembly:
+   * *   `minimum_should_match` (string|number) - (default 1) to make the
+   *       results more or less restrictive to the search term
+   * *   `fields` (Array<string>) - (default is fields specified to
+   *        `searchable()`) selects the fields on which to perform the
+   *        full-text search
+   * *   `match_query` (string) - (default is `match`) the ElasticSearch
+   *       query to use for full-text search - may be `prefix` or
+   *       `match_phrase` instead
+   * *   `match_options` (Object) - additional ElasticSearch options for
+   *       each field query
+   * *   `aggs` (Object) - aggregations to add to the query
+   * *   `filters` (Array<Object>) - additional ElasticSearch filter
+   *       objects to restrict the query
+   * *   `sort` array of sort fields
+   *
+   * These options may be specified to control pagination of results:
+   * *   `skip` (number) - number of initial results to skip
+   * *   `limit` (number) - (default 10) maximum number of results to return
+   *
+   * The ElasticSearch Query DSL documentation provides more detailed
+   * descriptions of these options.
+   *
+   * @example
+   *
+   * Here are two calls to `search()` and the resulting queries:
+   *
+   * `searcher.search('test-model', 'search term')`
+   *  ```
+   *       query: {
+   *         bool: {
+   *           minimum_should_match: 1,
+   *           should: [
+   *             {match: {name: "search term"}},
+   *             {match: {title: "search term"}},
+   *             {match: {description: "search term"}},
+   *           ],
+   *           filter: [
+   *             {term: {model: "test-model"}}
+   *           ]
+   *         }
+   *       }
+   *  ```
+   *
+   *  ```
+   *  searcher.search('test-model', 'search term', {
+   *    minimum_should_match: "50%",
+   *    fields: ['name', 'lastName'],
+   *    match_query: "match_phrase",
+   *    match_options: {analyzer: 'my-analyzer'},
+   *    filters: [{term: {type: 'person'}}],
+   *    sort: [{name: 'desc'}, 'lastName']
+   *  })
+   *  ```
+   *  ```
+   *       query: {
+   *         bool: {
+   *           minimum_should_match: "50%",
+   *           should: [
+   *             {match_phrase: {name: "search term", analyzer: 'my-analyzer'}},
+   *             {match_phrase: {lastName: "search term", analyzer: 'my-analyzer'}},
+   *           ],
+   *           filter: [
+   *             {term: {model: "test-model"}},
+   *             {term: {type: "person"}}
+   *           ]
+   *         }
+   *       },
+   *       sort: [{name: 'desc'}, 'lastName']
+   *  ```
+   *
    * @param  {string} model the model identity
-   * @param  {string} text  search value
-   * @param  {Object} opts Options for {filters, limit, skip, sort}
-   * @return {Array}  result objects
+   * @param  {string|Object} query search text string or query object
+   * @param  {Object} opts options for {filters, limit, skip, sort}
+   * @return {Array} result objects; also has `aggregations` and `total`
+   *   properties
    */
-  async search(model, text, opts) {
+  async search(model, query, opts={}) {
     let SD = await this._getSearchDocument(model)
-    let query = this._buildQuery(model, text, opts)
+    if (typeof query === 'string') query = this._buildQuery(model, query, opts)
     return new Promise((resolve, reject) => {
       SD.query({where: query, limit: opts.limit, skip: opts.skip}, (err, response) => {
         if (err) return reject(err)
-        var results = _.map(response.hits.hits, function(hit) {
-          return Object.assign({_score: hit._score}, hit._source);
-        })
+        let results = response.hits.hits.map(hit => Object.assign({_score: hit._score}, hit._source) )
         results.aggregations = response.aggregations
         results.total = response.hits.total
         resolve(results)
@@ -350,13 +377,13 @@ class Searcher extends NxusModule {
   /**
    * Count results of model for text matches.
    * @param  {string} model the model identity
-   * @param  {string} text  search value
-   * @param  {Object} opts Options for {filters, limit, skip, sort}
+   * @param  {string|Object} query search text string or query object
+   * @param  {Object} opts options for {filters, limit, skip, sort}
    * @return {Array}  result objects
    */
-  async count(model, text, opts) {
+  async count(model, query, opts={}) {
     let SD = await this._getSearchDocument(model)
-    let query = this._buildQuery(model, text, opts)
+    if (typeof query === 'string') query = this._buildQuery(model, query, opts)
     return SD.count().where(query)
   }
 
@@ -447,12 +474,8 @@ class Searcher extends NxusModule {
     templater.render('search-'+model+'-list', opts).then(res.send.bind(res))
   }
 
-  _buildQuery(model, text, opts={}) {
-    opts.match_query = opts.match_query || 'match'
-
-    if (!opts.hasOwnProperty('minimum_should_match')) {
-      opts.minimum_should_match = 1
-    }
+  _buildQuery(model, text, opts) {
+    opts = Object.assign({match_query: 'match', minimum_should_match: 1, fields: this.modelConfig[model].fields}, opts)
 
     let query = {
         query: {
@@ -467,9 +490,7 @@ class Searcher extends NxusModule {
       }
     }
 
-    let fields = opts.fields || this.modelConfig[model].fields
-
-    for(let field of fields) {
+    for(let field of opts.fields) {
       var m, o = {}
       o[opts.match_query] = {}
 
