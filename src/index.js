@@ -280,6 +280,9 @@ class Searcher extends NxusModule {
    * performs a boolean OR (`should`) of field queries. In addition, it
    * performs filtering to limit the results to the appropriate `model`.
    *
+   * If you supply the query object, be sure it includes filtering to
+   * limit the results to the appropriate `model`.
+   *
    * These options may be specified to control the query assembly:
    * *   `minimum_should_match` (string|number) - (default 1) to make the
    *       results more or less restrictive to the search term
@@ -295,6 +298,10 @@ class Searcher extends NxusModule {
    * *   `filters` (Array<Object>) - additional ElasticSearch filter
    *       objects to restrict the query
    * *   `sort` array of sort fields
+   *
+   * These options may be specified to control pagination of results:
+   * *   `skip` (number) - number of initial results to skip
+   * *   `limit` (number) - (default 10) maximum number of results to return
    *
    * The ElasticSearch Query DSL documentation provides more detailed
    * descriptions of these options.
@@ -353,7 +360,7 @@ class Searcher extends NxusModule {
    * @return {Array} result objects; also has `aggregations` and `total`
    *   properties
    */
-  async search(model, query, opts) {
+  async search(model, query, opts={}) {
     let SD = await this._getSearchDocument(model)
     if (typeof query === 'string') query = this._buildQuery(model, query, opts)
     return new Promise((resolve, reject) => {
@@ -374,7 +381,7 @@ class Searcher extends NxusModule {
    * @param  {Object} opts options for {filters, limit, skip, sort}
    * @return {Array}  result objects
    */
-  async count(model, query, opts) {
+  async count(model, query, opts={}) {
     let SD = await this._getSearchDocument(model)
     if (typeof query === 'string') query = this._buildQuery(model, query, opts)
     return SD.count().where(query)
