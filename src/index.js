@@ -525,7 +525,7 @@ class Searcher extends NxusModule {
     let M = await storage.getModel(model)
     let limit = this.itemsPerPage
     let skip = (page - 1) * limit
-    this.log.debug('Searching for', model, q)
+    this.log.info('Searching for', model, q)
     let results = await this.search(model, q, {limit, skip})
     let populate = this.modelConfig[model].populate
     let idq = M.find().where({id: _.pluck(results, 'id')})
@@ -550,14 +550,14 @@ class Searcher extends NxusModule {
     doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     await SD.create(doc)
-    this.log.debug('Search document created', model)
+    this.log.info('Search document created', model)
   }
 
   async _handleDestroy(model, doc) {
     if(!this.modelConfig[model]) return
     let SD = await this._getSearchDocument(model)
     await SD.destroy().where(doc.id)
-    this.log.debug('Search document deleted', model)
+    this.log.info('Search document deleted', model)
   }
 
   async _handleUpdate(model, doc) {
@@ -565,7 +565,7 @@ class Searcher extends NxusModule {
     doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     await SD.update(doc.id, doc)
-    this.log.debug('Search document updated', model)
+    this.log.info('Search document updated', model)
   }
 }
 
