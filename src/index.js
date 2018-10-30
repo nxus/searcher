@@ -575,7 +575,7 @@ class Searcher extends NxusModule {
     try {
       await SD.update(doc.id, doc)
     } catch(e) {
-      this.log.trace("Search update error", model, doc.di, e)
+      this.log.trace("Search update error", model, doc.id, e)
     }
     this.log.trace('Search document updated', model, doc.id)
   }
