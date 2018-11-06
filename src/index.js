@@ -553,7 +553,7 @@ class Searcher extends NxusModule {
       await SD.create(doc)
       this.log.trace('Search document created', model, doc.id)
     } catch(e) {
-      this.log.trace("Search create error", model, doc.id, e)
+      this.log.trace("Search create error", model, doc.id, e.message)
     }
   }
 
@@ -564,7 +564,7 @@ class Searcher extends NxusModule {
       await SD.destroy().where(doc.id)
       this.log.trace('Search document deleted', model, doc.id)
     } catch(e) {
-      this.log.trace("Search destroy error", model, doc.id, e)
+      this.log.trace("Search destroy error", model, doc.id, e.message)
     }
   }
 
@@ -576,7 +576,7 @@ class Searcher extends NxusModule {
       await SD.update(doc.id, doc)
       this.log.trace('Search document updated', model, doc.id)
     } catch(e) {
-      this.log.trace("Search update error", model, doc.id, e)
+      this.log.trace("Search update error", model, doc.id, e.message)
     }
   }
 }
