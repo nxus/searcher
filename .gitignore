@@ -1,5 +1,7 @@
 INSTRUCTIONS.md
+package-lock.json
 lib
+docs
 # Logs
 logs
 *.log
