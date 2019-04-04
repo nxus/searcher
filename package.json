@@ -9,6 +9,7 @@
     "test": "npm run compile && NODE_ENV=test mocha --compilers js:babel-core/register -R spec",
     "compile": "babel src --out-dir lib && cp -r src/templates lib/",
     "prepublish": "npm run compile",
+    "prepare": "npm run compile",
     "build-docs": "export NAME=`npm view . name`; export VERSION=`npm view . version`; documentation readme ./src/*.js --name $NAME --project-version $VERSION --readme-file ./README.md -s $NAME",
     "publish-docs": "npm run build-docs && git add ./README.md && git commit -m 'Updated README API Docs' && git push"
   },
