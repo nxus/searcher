@@ -35,6 +35,15 @@ The Searcher module depends on @nxus/storage.  The first step is adding and conf
      }
    }
 
+Some ES providers like Bonsai limit the number of concurrent reads/writes, and respond with a 429 error over
+limit. By default searcher catches these errors and retries with an exponential delay. You can configure the
+delay nultiplier (ms) and maximum number of attempts:
+
+  "searcher": {
+    "retryDelay": 200,
+    "retryAttempts": 4
+  }
+
 ### Register model
 
 Now that the correct Storage adapters are configured, you'll need to tell Searcher which models you want to enable

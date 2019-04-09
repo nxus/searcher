@@ -36,6 +36,15 @@
  *      }
  *    }
  *
+ * Some ES providers like Bonsai limit the number of concurrent reads/writes, and respond with a 429 error over
+ * limit. By default searcher catches these errors and retries with an exponential delay. You can configure the
+ * delay nultiplier (ms) and maximum number of attempts:
+ *
+ *   "searcher": {
+ *     "retryDelay": 200,
+ *     "retryAttempts": 4
+ *   }
+ * 
  * ## Register model
  * Now that the correct Storage adapters are configured, you'll need to tell Searcher which models you want to enable
  * search using the `searchable` method. Searchable accepts an identity for a model which has already been registered.
@@ -157,6 +166,7 @@ import SearchDocument from './models/searchDocument.js'
 import _ from 'underscore'
 import Promise from 'bluebird'
 import pluralize from 'pluralize'
+import {retry} from '@lifeomic/attempt'
 
 function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -188,7 +198,9 @@ class Searcher extends NxusModule {
 
   _defaultConfig() {
     return {
-      baseUrl: '/search'
+      baseUrl: '/search',
+      retryDelay: 200,
+      retryAttempts: 4
     }
   }
 
@@ -267,6 +279,20 @@ class Searcher extends NxusModule {
 
   }
 
+  _retryLimit(handler) {
+    return retry(handler, {
+      delay: this.config.retryDelay,
+      factor: 2,
+      maxAttempts: this.config.retryAttempts,
+      handleError: (err, context) => {
+        this.log.trace("Retry attempt errored", err, Object.keys(err))
+        if (! (err.status && err.status == 429) ) {
+          context.abort()
+        }
+      }
+    })
+  }
+  
 
   /**
    * Search a model for text matches.
@@ -363,13 +389,15 @@ class Searcher extends NxusModule {
   async search(model, query, opts={}) {
     let SD = await this._getSearchDocument(model)
     if (typeof query === 'string') query = this._buildQuery(model, query, opts)
-    return new Promise((resolve, reject) => {
-      SD.query({where: query, limit: opts.limit, skip: opts.skip}, (err, response) => {
-        if (err) return reject(err)
-        let results = response.hits.hits.map(hit => Object.assign({_score: hit._score}, hit._source) )
-        results.aggregations = response.aggregations
-        results.total = response.hits.total
-        resolve(results)
+    return this._retryLimit(() => {
+      return new Promise((resolve, reject) => {
+        SD.query({where: query, limit: opts.limit, skip: opts.skip}, (err, response) => {
+          if (err) return reject(err)
+          let results = response.hits.hits.map(hit => Object.assign({_score: hit._score}, hit._source) )
+          results.aggregations = response.aggregations
+          results.total = response.hits.total
+          resolve(results)
+        })
       })
     })
   }
@@ -550,7 +578,7 @@ class Searcher extends NxusModule {
     doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     try {
-      await SD.create(doc)
+      await this._retryLimit(() => SD.create(doc))
       this.log.trace('Search document created', model, doc.id)
     } catch(e) {
       this.log.trace("Search create error", model, doc.id, e.message)
@@ -561,7 +589,7 @@ class Searcher extends NxusModule {
     if(!this.modelConfig[model]) return
     let SD = await this._getSearchDocument(model)
     try {
-      await SD.destroy().where(doc.id)
+      await this._retryLimi(() => SD.destroy().where(doc.id))
       this.log.trace('Search document deleted', model, doc.id)
     } catch(e) {
       this.log.trace("Search destroy error", model, doc.id, e.message)
@@ -573,7 +601,7 @@ class Searcher extends NxusModule {
     doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     try {
-      await SD.update(doc.id, doc)
+      await this._retryLimit(() => SD.update(doc.id, doc))
       this.log.trace('Search document updated', model, doc.id)
     } catch(e) {
       this.log.trace("Search update error", model, doc.id, e.message)

@@ -21,6 +21,7 @@
   "license": "MIT",
   "homepage": "",
   "dependencies": {
+    "@lifeomic/attempt": "^3.0.0",
     "bluebird": "^3.3.1",
     "nxus-core": "^4.0.0",
     "nxus-router": "^4.0.0",
