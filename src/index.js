@@ -285,8 +285,12 @@ class Searcher extends NxusModule {
       factor: 2,
       maxAttempts: this.config.retryAttempts,
       handleError: (err, context) => {
-        this.log.trace("Retry attempt errored", err, Object.keys(err))
-        if (! (err.status && err.status == 429) ) {
+        let status = err.originalError && err.originalError.status
+        if (status == 429)
+          this.log.trace("Retrying, " + err.originalError.message)
+        else {
+          let msg = (context.attemptNum === 0) ? "Attempt errored" : `Retry attempt ${context.attemptNum} errored`
+          this.log.info(msg, err)
           context.abort()
         }
       }
