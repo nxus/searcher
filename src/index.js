@@ -589,7 +589,7 @@ class Searcher extends NxusModule {
     if(!this.modelConfig[model]) return
     let SD = await this._getSearchDocument(model)
     try {
-      await this._retryLimi(() => SD.destroy().where(doc.id))
+      await this._retryLimit(() => SD.destroy().where(doc.id))
       this.log.trace('Search document deleted', model, doc.id)
     } catch(e) {
       this.log.trace("Search destroy error", model, doc.id, e.message)
