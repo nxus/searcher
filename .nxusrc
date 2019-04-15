@@ -1,0 +1,26 @@
+{
+  "siteName": "Nxus App",
+  "host": "localhost",
+  "baseUrl": "localhost:3001",
+  "sendgrid": {
+    "apiUsername": "",
+    "apiPassword": ""
+  },
+  "storage": {
+    "adapters": {
+      "default": "sails-mongo",
+      "searcher": "waterline-elasticsearch"
+    },
+    "connections": {
+      "default": {
+        "adapter": "default"
+      },
+      "searcher": {
+        "adapter": "searcher",
+        "host": "localhost:9200",
+        "log": "warning",
+        "index": "searcher-module"
+      }
+    }
+  }
+}
