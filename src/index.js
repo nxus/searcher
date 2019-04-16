@@ -417,8 +417,9 @@ class Searcher extends NxusModule {
   async count(model, query, opts={}) {
     let SD = await this._getSearchDocument(model)
     if (typeof query === 'string') query = this._buildQuery(model, query, opts)
-    return SD.count().where(query)
+    return this._retryLimit(async () => { return await SD.count().where(query) })
   }
+                                  
 
   /**
    * Reindex all of a model's documents. Different services concurrent request and queue limits are parameters
@@ -548,10 +549,8 @@ class Searcher extends NxusModule {
     return query
   }
 
-  async _handleCount(req, res, model, q) {
-    let SD = await this._getSearchDocument(model)
-    let query = this._buildQuery(model, q)
-    return SD.count().where(query)
+    async _handleCount(req, res, model, q) {
+      return this.count(model, q)
   }
 
   async _handleSearch(req, res, model, q, page) {
