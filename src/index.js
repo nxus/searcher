@@ -191,6 +191,11 @@ class Searcher extends NxusModule {
     this._searchDocuments = {}
     this._createSearchDocument()
 
+    // Global listeners
+    storage.on('model.create', ::this._handleCreate)
+    storage.on('model.update', ::this._handleUpdate)
+    storage.on('model.destroy', ::this._handleDestroy)
+    
     router.route('get', this.config.baseUrl+"/:model/:id", ::this._searchDetail)
     router.route('get', this.config.baseUrl+"/:model", ::this._searchResults)
 
@@ -270,10 +275,6 @@ class Searcher extends NxusModule {
 
     opts.searchdocument = this._createSearchDocument(opts.index)
 
-    storage.on('model.create', ::this._handleCreate)
-    storage.on('model.update', ::this._handleUpdate)
-    storage.on('model.destroy', ::this._handleDestroy)
-
     templater.default().template(__dirname+'/templates/searcher-detail.ejs', this.pageTemplate, 'search-'+model+'-detail')
     templater.default().template(__dirname+'/templates/searcher-list.ejs', this.pageTemplate, 'search-'+model+'-list')
 
@@ -285,7 +286,7 @@ class Searcher extends NxusModule {
       factor: 2,
       maxAttempts: this.config.retryAttempts,
       handleError: (err, context) => {
-        let status = err.originalError && err.originalError.status
+        let status = err.originalError && err.originalError.statusCode
         if (status == 429)
           this.log.trace("Retrying, " + err.originalError.message)
         else {
@@ -585,7 +586,7 @@ class Searcher extends NxusModule {
       await this._retryLimit(() => SD.create(doc))
       this.log.trace('Search document created', model, doc.id)
     } catch(e) {
-      this.log.trace("Search create error", model, doc.id, e.message)
+      this.log.trace("Search create error", model, doc, e.message)
     }
   }
 
@@ -608,7 +609,7 @@ class Searcher extends NxusModule {
       await this._retryLimit(() => SD.update(doc.id, doc))
       this.log.trace('Search document updated', model, doc.id)
     } catch(e) {
-      this.log.trace("Search update error", model, doc.id, e.message)
+      this.log.trace("Search update error", model, doc, e.message)
     }
   }
 }
