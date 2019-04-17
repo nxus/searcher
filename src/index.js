@@ -191,11 +191,6 @@ class Searcher extends NxusModule {
     this._searchDocuments = {}
     this._createSearchDocument()
 
-    // Global listeners
-    storage.on('model.create', ::this._handleCreate)
-    storage.on('model.update', ::this._handleUpdate)
-    storage.on('model.destroy', ::this._handleDestroy)
-    
     router.route('get', this.config.baseUrl+"/:model/:id", ::this._searchDetail)
     router.route('get', this.config.baseUrl+"/:model", ::this._searchResults)
 
@@ -275,6 +270,10 @@ class Searcher extends NxusModule {
 
     opts.searchdocument = this._createSearchDocument(opts.index)
 
+    storage.on('model.create.'+model, ::this._handleCreate)
+    storage.on('model.update.'+model, ::this._handleUpdate)
+    storage.on('model.destroy.'+model, ::this._handleDestroy)
+    
     templater.default().template(__dirname+'/templates/searcher-detail.ejs', this.pageTemplate, 'search-'+model+'-detail')
     templater.default().template(__dirname+'/templates/searcher-list.ejs', this.pageTemplate, 'search-'+model+'-list')
 
