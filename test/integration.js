@@ -39,15 +39,15 @@ describe('Integration', () => {
   describe("documents", () => {
     it("creates document", async () => {
       let model = await storage.getModel('test-model')
-      let val = {name: 'Test Model'}
+      let val = {name: 'First Model'}
       await model.create(val)
       // timeout and refresh for model events not awaited
       await timeout(200)
       await tester.searcherRefresh()
 
-      let count = await searcher.count('test-model', 'Test')
+      let count = await searcher.count('test-model', 'First')
       expect(count).toEqual(1)
-      let res = await searcher.search('test-model', 'Test')
+      let res = await searcher.search('test-model', 'First')
       expect(res.total).toEqual(1)
       expect(res[0].model).toEqual('test-model')
       expect(res[0].name).toEqual(val.name)
@@ -69,22 +69,26 @@ describe('Integration', () => {
 
     it("updates document", async () => {
       let model = await storage.getModel('test-model')
-      let m = await model.findOne({name: 'Test Model'})
-      m.name = 'Untest Model'
+      let m = await model.findOne({name: 'First Model'})
+      m.name = 'Other Model'
       await m.save()
       // timeout and refresh for model events not awaited
       await timeout(200)
       await tester.searcherRefresh()
-      
-      let res = await searcher.search('test-model', 'Model')
+
+      // new document is found
+      let res = await searcher.search('test-model', 'Other')
       expect(res.total).toEqual(1)
       expect(res[0].model).toEqual('test-model')
       expect(res[0].name).toEqual(m.name)
+      // original document is not found
+      res = await searcher.search('test-model', 'First')
+      expect(res.total).toEqual(0)
     })
 
     it("deletes document", async () => {
       let model = await storage.getModel('test-model')
-      let m = await model.findOne({name: 'Untest Model'})
+      let m = await model.findOne({name: 'Other Model'})
       await model.destroy(m.id)
       // timeout and refresh for model events not awaited
       await timeout(200)
