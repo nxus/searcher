@@ -427,32 +427,52 @@ class Searcher extends NxusModule {
    * @param  {string} interval ms to wait between doc chunks
    * @param  {string} start to restart indexing from midway
    */
-  async reindex(model, concurrent=100, interval=100, start=0) {
-    // TODO ElasticSearch offers the ability to reindex by building a new index and then replacing
-    // TODO We should use that.
+  async reindex(model, concurrent=1000, interval=100, start=0) {
     let SD = await this._getSearchDocument(model)
+    // the actual configured ES index and collection for native call
+    let index = SD.connections[SD.connection[0]].config.index
+    let _type = SD.identity
+    
+    let count = 0, errors = 0
+
     let M = await storage.getModel(model)
-    let objs = await M.find()
+    let objs = await M.find().skip(start)
 
-    objs = objs.slice(start)
 
-    // Wait to let queue empty
     while (objs.length) {
-      objs.slice(0, concurrent).forEach(async (obj) => {
-        let exists = await SD.count().where({id: obj.id})
-        try {
-          if (exists >= 1) {
-            return this._handleUpdate(model, obj)
-          } else {
-            return this._handleCreate(model, obj)
-          }
-        } catch(e) {
-          this.log.error("error reindexing", e)
-        }
-      })
+      let docs = await Promise.map(objs.slice(0, concurrent), (doc) => this._documentToIndex(model, doc))
+      count += docs.length
+
+      // Although testing with 6.5 and _type deprecated since 5.x, validation if `_type` is not provided
+      //   the waterline-elasticsearch connection does set type too on non-native calls
+      // bulk format is newline-separated action/data JSON strings
+      let body = _.flatten(
+        docs.map((d) => [{index: {_type, _id: d.id}}, d] )
+      ).map(JSON.stringify).join("\n")
+      
+      try {
+        await this._retryLimit(() => {
+          return new Promise((resolve, reject) => {
+            SD.native((err, client) => {
+              if (err) { reject(err); return }
+              client.bulk({index, body}, (err, response) => {
+                if (err) { reject(err); return }
+                if (response.errors) { reject(err); return }
+                resolve(response)
+              })
+            })
+          })
+        })
+        this.log.trace('Bulk reindex progress', count, 'documents indexed')
+      } catch(e) {
+        errors += 1
+        this.log.trace("Bulk reindex error", e.message)
+      }
+      
       objs = objs.slice(concurrent)
       await timeout(interval)
     }
+    this.log.trace('Bulk reindex complete', count, 'documents indexed', "with", errors, "errors")
   }
 
   _getSearchDocument(model) {

@@ -30,7 +30,7 @@
     "nxus-tester-jest": "^4.0.9",
     "pluralize": "^1.2.1",
     "underscore": "^1.8.3",
-    "waterline-elasticsearch": "git+https://github.com/seabourne/waterline-elasticsearch.git#4.0"
+    "waterline-elasticsearch": "git+https://github.com/seabourne/waterline-elasticsearch.git#fix/add-native"
   },
   "devDependencies": {
     "babel-cli": "^6.9.0",
