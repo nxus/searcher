@@ -443,13 +443,14 @@ class Searcher extends NxusModule {
       let docs = await Promise.map(objs.slice(0, concurrent), (doc) => this._documentToIndex(model, doc))
       count += docs.length
 
-      // Although testing with 6.5 and _type deprecated since 5.x, validation if `_type` is not provided
-      //   the waterline-elasticsearch connection does set type too on non-native calls
       // bulk format is newline-separated action/data JSON strings
       let body = _.flatten(
         docs.map((d) => [{index: {_type, _id: d.id}}, d] )
       ).map(JSON.stringify).join("\n")
       
+      // Although testing with ES 6.5 and _type deprecated since 5.x, validation error if `_type` is not provided
+      //   the waterline-elasticsearch connection does set type too on non-native calls
+
       try {
         await this._retryLimit(() => {
           return new Promise((resolve, reject) => {
@@ -457,7 +458,7 @@ class Searcher extends NxusModule {
               if (err) { reject(err); return }
               client.bulk({index, body}, (err, response) => {
                 if (err) { reject(err); return }
-                if (response.errors) { reject(err); return }
+                if (response.errors) { reject(response.errors); return }
                 resolve(response)
               })
             })
