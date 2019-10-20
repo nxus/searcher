@@ -6,7 +6,7 @@
   "scripts": {
     "preversion": "npm test",
     "postversion": "npm run build-docs && git push && git push --tags",
-    "test": "npm run compile && NODE_ENV=test mocha --compilers js:babel-core/register -R spec",
+    "test": "jest --runInBand --forceExit",
     "compile": "babel src --out-dir lib && cp -r src/templates lib/",
     "prepublish": "npm run compile",
     "prepare": "npm run compile",
@@ -21,26 +21,24 @@
   "license": "MIT",
   "homepage": "",
   "dependencies": {
+    "@lifeomic/attempt": "^3.0.0",
     "bluebird": "^3.3.1",
-    "nxus-core": "^4.0.0",
+    "nxus-core": "^4.1.0",
     "nxus-router": "^4.0.0",
     "nxus-storage": "^4.0.0",
     "nxus-templater": "^4.0.0",
     "pluralize": "^1.2.1",
     "underscore": "^1.8.3",
-    "waterline-elasticsearch": "https://github.com/seabourne/waterline-elasticsearch.git#4.0"
+    "waterline-elasticsearch": "git+https://github.com/seabourne/waterline-elasticsearch.git#fix/add-native"
   },
   "devDependencies": {
     "babel-cli": "^6.9.0",
     "babel-core": "^6.9.0",
     "babel-plugin-transform-object-rest-spread": "^6.8.0",
     "babel-preset-env": "^1.6.1",
-    "chai": "^3.5.0",
-    "chai-as-promised": "^5.2.0",
     "documentation": "^4.0.0-beta",
-    "mocha": "^2.2.5",
-    "should": "^7.0.2",
-    "sinon": "^1.17.2"
+    "nxus-tester-jest": "^4.0.9",
+    "sinon": "^1.17.7"
   },
   "directories": {
     "test": "test"
