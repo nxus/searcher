@@ -14,6 +14,13 @@ function processor(doc) {
 }
 processor = sinon.spy(processor)
 
+function reprocessor(doc) {
+  doc.upper_name = doc.name.toUpperCase()
+  return doc
+  
+}
+reprocessor = sinon.spy(reprocessor)
+
 describe('Integration', () => {
   describe("searchable", () => {
     it("registers model", async () => {
@@ -98,6 +105,21 @@ describe('Integration', () => {
       expect(res.total).toEqual(0)
     })
     
+  })
+
+  describe("reindex", () => {
+    it("reindexes and refreshes all model processing", async () => {
+      await searcher.searchable('test-model2', {processor: reprocessor})
+      await searcher.reindex('test-model2')
+      await timeout(200)
+      await tester.searcherRefresh()
+      
+      let res = await searcher.search('test-model2', 'Model')
+      expect(res.total).toEqual(1)
+      expect(res[0].upper_name).toEqual('TEST MODEL')
+      expect(reprocessor.callCount).toEqual(1)
+        
+    })    
   })
 
   describe("errors", () => {
