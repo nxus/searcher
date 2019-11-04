@@ -308,6 +308,6 @@ Reindex all of a model's documents. Different services concurrent request and qu
 **Parameters**
 
 -   `model` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** the model identity
--   `concurrent` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** how many docs to concurrently process (optional, default `100`)
+-   `concurrent` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** how many docs to concurrently process (optional, default `1000`)
 -   `interval` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** ms to wait between doc chunks (optional, default `100`)
 -   `start` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** to restart indexing from midway (optional, default `0`)
