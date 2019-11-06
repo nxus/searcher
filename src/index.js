@@ -44,7 +44,7 @@
  *     "retryDelay": 200,
  *     "retryAttempts": 4
  *   }
- * 
+ *
  * ## Register model
  * Now that the correct Storage adapters are configured, you'll need to tell Searcher which models you want to enable
  * search using the `searchable` method. Searchable accepts an identity for a model which has already been registered.
@@ -155,7 +155,7 @@
  *
  */
 
-'use strict';
+'use strict'
 
 import {application as app, NxusModule} from 'nxus-core'
 import {storage} from 'nxus-storage'
@@ -164,12 +164,11 @@ import {router} from 'nxus-router'
 
 import SearchDocument from './models/searchDocument.js'
 import _ from 'underscore'
-import Promise from 'bluebird'
 import pluralize from 'pluralize'
 import {retry} from '@lifeomic/attempt'
 
 function timeout(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 /**
@@ -205,11 +204,11 @@ class Searcher extends NxusModule {
   }
 
   _setDefaultConfig() {
-    var conf = app.config.storage
-    var defaultMapping = {"searchdocument": {"properties": {"id": {"type":"keyword"}, "model":{"type": "keyword"}}}}
-    if(!conf.adapters) conf.adapters = {}
-    if(!conf.connections) conf.connections = {}
-    if(!conf.adapters.searcher) {
+    let conf = app.config.storage
+    let defaultMapping = {"searchdocument": {"properties": {"id": {"type":"keyword"}, "model":{"type": "keyword"}}}}
+    if (!conf.adapters) conf.adapters = {}
+    if (!conf.connections) conf.connections = {}
+    if (!conf.adapters.searcher) {
       conf.adapters.searcher = "waterline-elasticsearch"
       conf.connections.searcher = {
          "adapter": "searcher",
@@ -219,7 +218,7 @@ class Searcher extends NxusModule {
          "mappings": defaultMapping
       }
     }
-    if(!conf.connections.searcher.mappings) {
+    if (!conf.connections.searcher.mappings) {
       conf.connections.searcher.mappings = defaultMapping
     }
   }
@@ -263,7 +262,7 @@ class Searcher extends NxusModule {
    */
   searchable(model, opts = {}) {
     this.log.debug('Registering searchable', model, opts)
-    if(!opts.fields) opts.fields = ['name', 'title', 'description']
+    if (!opts.fields) opts.fields = ['name', 'title', 'description']
     opts.model = model
     this.modelConfig[model] = opts
     this.modelConfig[pluralize(model)] = opts
@@ -273,7 +272,7 @@ class Searcher extends NxusModule {
     storage.on('model.create.'+model, ::this._handleCreate)
     storage.on('model.update.'+model, ::this._handleUpdate)
     storage.on('model.destroy.'+model, ::this._handleDestroy)
-    
+
     templater.default().template(__dirname+'/templates/searcher-detail.ejs', this.pageTemplate, 'search-'+model+'-detail')
     templater.default().template(__dirname+'/templates/searcher-list.ejs', this.pageTemplate, 'search-'+model+'-list')
 
@@ -296,7 +295,7 @@ class Searcher extends NxusModule {
       }
     })
   }
-  
+
 
   /**
    * Search a model for text matches.
@@ -418,36 +417,35 @@ class Searcher extends NxusModule {
     if (typeof query === 'string') query = this._buildQuery(model, query, opts)
     return this._retryLimit(async () => { return await SD.count().where(query) })
   }
-                                  
+
 
   /**
    * Reindex all of a model's documents. Different services concurrent request and queue limits are parameters
    * @param  {string} model the model identity
    * @param  {string} concurrent how many docs to concurrently process
    * @param  {string} interval ms to wait between doc chunks
-   * @param  {string} start to restart indexing from midway
    */
-  async reindex(model, concurrent=1000, interval=100, start=0) {
+  async reindex(model, concurrent=1000, interval=100) {
     let SD = await this._getSearchDocument(model)
     // the actual configured ES index and collection for native call
     let index = SD.connections[SD.connection[0]].config.index
     let _type = SD.identity
-    
+
     let count = 0, errors = 0
 
     let M = await storage.getModel(model)
-    let objs = await M.find().skip(start)
 
-
-    while (objs.length) {
-      let docs = await Promise.map(objs.slice(0, concurrent), (doc) => this._documentToIndex(model, doc))
-      count += docs.length
+    for (;;) {
+      let objs = await M.find().skip(count).limit(concurrent)
+      if (objs.length === 0) break
+      count += objs.length
 
       // bulk format is newline-separated action/data JSON strings
+      let docs = await Promise.all(objs.map(obj => this._documentToIndex(model, obj)))
       let body = _.flatten(
         docs.map((d) => [{index: {_type, _id: d.id}}, d] )
       ).map(JSON.stringify).join("\n")
-      
+
       // Although testing with ES 6.5 and _type deprecated since 5.x, validation error if `_type` is not provided
       //   the waterline-elasticsearch connection does set type too on non-native calls
 
@@ -465,12 +463,12 @@ class Searcher extends NxusModule {
           })
         })
         this.log.trace('Bulk reindex progress', count, 'documents indexed')
-      } catch(e) {
+      } catch (e) {
         errors += 1
         this.log.trace("Bulk reindex error", e.message)
       }
-      
-      objs = objs.slice(concurrent)
+
+      if (objs.length < concurrent) break
       await timeout(interval)
     }
     this.log.trace('Bulk reindex complete', count, 'documents indexed', "with", errors, "errors")
@@ -544,8 +542,8 @@ class Searcher extends NxusModule {
       }
     }
 
-    for(let field of opts.fields) {
-      var m, o = {}
+    for (let field of opts.fields) {
+      let m, o = {}
       o[opts.match_query] = {}
 
       if (opts.match_options) {
@@ -563,7 +561,7 @@ class Searcher extends NxusModule {
       query.query.bool.filter.push(...opts.filters)
     }
     if (opts.sort) {
-      query.sort = opts.sort;
+      query.sort = opts.sort
     }
 
     return query
@@ -598,36 +596,36 @@ class Searcher extends NxusModule {
   }
 
   async _handleCreate(model, doc) {
-    if(!this.modelConfig[model]) return
+    if (!this.modelConfig[model]) return
     doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     try {
       await this._retryLimit(() => SD.create(doc))
       this.log.trace('Search document created', model, doc.id)
-    } catch(e) {
+    } catch (e) {
       this.log.trace("Search create error", model, doc, e.message)
     }
   }
 
   async _handleDestroy(model, doc) {
-    if(!this.modelConfig[model]) return
+    if (!this.modelConfig[model]) return
     let SD = await this._getSearchDocument(model)
     try {
       await this._retryLimit(() => SD.destroy().where(doc.id))
       this.log.trace('Search document deleted', model, doc.id)
-    } catch(e) {
+    } catch (e) {
       this.log.trace("Search destroy error", model, doc.id, e.message)
     }
   }
 
   async _handleUpdate(model, doc) {
-    if(!this.modelConfig[model]) return
+    if (!this.modelConfig[model]) return
     doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     try {
       await this._retryLimit(() => SD.update(doc.id, doc))
       this.log.trace('Search document updated', model, doc.id)
-    } catch(e) {
+    } catch (e) {
       this.log.trace("Search update error", model, doc, e.message)
     }
   }
