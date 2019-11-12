@@ -435,6 +435,24 @@ class Searcher extends NxusModule {
 
     let M = await storage.getModel(model)
 
+    try {
+      let body = {query: {term: {model}}}
+      // delete-by-query apparently does its own retries
+      await new Promise((resolve, reject) => {
+        SD.native((err, client) => {
+          if (err) { reject(err); return }
+          client.deleteByQuery({index, body}, (err, response) => {
+            if (err) { reject(err); return }
+            if (response.errors) { reject(response.errors); return }
+            resolve(response)
+          })
+        })
+      })
+      this.log.trace('Search reindex documents deleted', model)
+    } catch (e) {
+      this.log.trace("Search reindex destroy error", model, e.message)
+    }
+
     for (;;) {
       let objs = await M.find().skip(count).limit(concurrent)
       if (objs.length === 0) break
@@ -567,7 +585,7 @@ class Searcher extends NxusModule {
     return query
   }
 
-    async _handleCount(req, res, model, q) {
+  async _handleCount(req, res, model, q) {
       return this.count(model, q)
   }
 
