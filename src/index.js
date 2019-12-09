@@ -36,12 +36,19 @@
  *      }
  *    }
  *
- * Some ES providers like Bonsai limit the number of concurrent reads/writes, and respond with a 429 error over
- * limit. By default searcher catches these errors and retries with an exponential delay. You can configure the
- * delay nultiplier (ms) and maximum number of attempts:
+ * Some ES providers like Bonsai limit the number of concurrent reads/writes,
+ * and respond with a 429 error over limit. Providers may also have temporary
+ * service outages that are reported as 502 errors. By default searcher catches
+ * these errors and retries with an exponential delay.
+ *
+ * The default settings are an interval of 200ms, exponential factor of 4, and
+ * 4 attempts. (So, delays of 200ms, 800ms, 3200ms and 12800ms.)
+ *
+ * You can configure the delay interval (ms) and maximum number of attempts:
  *
  *   "searcher": {
  *     "retryDelay": 200,
+ *     "retryFactor": 2,
  *     "retryAttempts": 4
  *   }
  *
@@ -199,6 +206,7 @@ class Searcher extends NxusModule {
     return {
       baseUrl: '/search',
       retryDelay: 200,
+      retryFactor: 4,
       retryAttempts: 4
     }
   }
@@ -278,17 +286,17 @@ class Searcher extends NxusModule {
 
   }
 
-  _retryLimit(handler) {
+  _retryLimit(operation, handler) {
     return retry(handler, {
       delay: this.config.retryDelay,
-      factor: 2,
+      factor: this.config.retryFactor,
       maxAttempts: this.config.retryAttempts,
       handleError: (err, context) => {
         let status = err.originalError && err.originalError.statusCode
-        if (status == 429)
-          this.log.trace("Retrying, " + err.originalError.message)
+        if ((status == 429) || (status == 502))
+          this.log.trace(`Retrying ${operation}, ${err.originalError.message}`)
         else {
-          let msg = (context.attemptNum === 0) ? "Attempt errored" : `Retry attempt ${context.attemptNum} errored`
+          let msg = (context.attemptNum === 0) ? `${operation} errored` : `${operation} retry ${context.attemptNum} errored`
           this.log.info(msg, err)
           context.abort()
         }
@@ -392,7 +400,7 @@ class Searcher extends NxusModule {
   async search(model, query, opts={}) {
     let SD = await this._getSearchDocument(model)
     if (typeof query === 'string') query = this._buildQuery(model, query, opts)
-    return this._retryLimit(() => {
+    return this._retryLimit('Search', () => {
       return new Promise((resolve, reject) => {
         SD.query({where: query, limit: opts.limit, skip: opts.skip}, (err, response) => {
           if (err) return reject(err)
@@ -415,7 +423,7 @@ class Searcher extends NxusModule {
   async count(model, query, opts={}) {
     let SD = await this._getSearchDocument(model)
     if (typeof query === 'string') query = this._buildQuery(model, query, opts)
-    return this._retryLimit(async () => { return await SD.count().where(query) })
+    return this._retryLimit('Count', async () => { return await SD.count().where(query) })
   }
 
 
@@ -468,7 +476,7 @@ class Searcher extends NxusModule {
       //   the waterline-elasticsearch connection does set type too on non-native calls
 
       try {
-        await this._retryLimit(() => {
+        await this._retryLimit('Reindex', () => {
           return new Promise((resolve, reject) => {
             SD.native((err, client) => {
               if (err) { reject(err); return }
@@ -618,7 +626,7 @@ class Searcher extends NxusModule {
     doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     try {
-      await this._retryLimit(() => SD.create(doc))
+      await this._retryLimit('Create', () => SD.create(doc))
       this.log.trace('Search document created', model, doc.id)
     } catch (e) {
       this.log.trace("Search create error", model, doc, e.message)
@@ -629,7 +637,7 @@ class Searcher extends NxusModule {
     if (!this.modelConfig[model]) return
     let SD = await this._getSearchDocument(model)
     try {
-      await this._retryLimit(() => SD.destroy().where(doc.id))
+      await this._retryLimit('Destroy', () => SD.destroy().where(doc.id))
       this.log.trace('Search document deleted', model, doc.id)
     } catch (e) {
       this.log.trace("Search destroy error", model, doc.id, e.message)
@@ -641,7 +649,7 @@ class Searcher extends NxusModule {
     doc = await this._documentToIndex(model, doc)
     let SD = await this._getSearchDocument(model)
     try {
-      await this._retryLimit(() => SD.update(doc.id, doc))
+      await this._retryLimit('Update', () => SD.update(doc.id, doc))
       this.log.trace('Search document updated', model, doc.id)
     } catch (e) {
       this.log.trace("Search update error", model, doc, e.message)
